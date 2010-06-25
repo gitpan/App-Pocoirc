@@ -1,0 +1,146 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use Getopt::Long qw(:config autohelp no_ignore_case);
+use Pod::Usage;
+
+my %args;
+GetOptions(
+    'c|config=s'   => \$args{cfg_file},
+    'v|verbose'    => \$args{verbose},
+    'd|daemonize'  => \$args{daemonize},
+    '6|ipv6'       => \$args{ipv6},
+    'S|ssl'        => \$args{ssl},
+    'I|lib=s@'     => \$args{lib},
+    'l|log-file=s' => \$args{log_file},
+    'C|class=s'    => \$args{class},
+    's|server=s'   => \$args{server},
+    'n|nick=s'     => \$args{nick},
+    'u|username=s' => \$args{username},
+    'i|ircname=s'  => \$args{ircname},
+    'p|plugin=s@'  => \$args{plugin_specs},
+    'V|version'    => sub {
+        no strict 'vars';
+        my $version = defined $App::Pocoirc::VERSION
+            ? $App::Pocoirc::VERSION
+            : 'dev-git';
+        print "Version $version\n";
+    },
+) or pod2usage();
+
+my @plugins;
+if ($args{plugin_specs} && @{ $args{plugin_specs} }) {
+    require JSON::XS;
+    JSON::XS->import('decode_json');
+
+    for my $plugspec (@{ $args{plugin_specs} }) {
+        my ($class, $json) = $plugspec =~ /^([:A-Za-z0-9]+)\s*(.+)?/;
+        die "Missing plugin class for option --plugin\n" if !defined $class;
+
+        my $plug_args;
+        if (defined $json) {
+            eval { $plug_args = decode_json($json) };
+            if ($@) {
+                chomp $@;
+                die "Invalid JSON argument for plugin $class: $@\n"
+            }
+            if (ref $plug_args ne 'HASH') {
+                die "JSON argument for plugin $class should be an array\n";
+            }
+        }
+
+        push @plugins, [$class, $plug_args];
+    }
+}
+
+my $config;
+if (defined $args{cfg_file}) {
+    require YAML::XS;
+    YAML::XS->import('LoadFile');
+
+    eval { $config = LoadFile($args{cfg_file}) };
+
+    if ($@) {
+        chomp $@;
+        die "Failed to read YAML data from $args{cfg_file}: $@\n"
+    }
+    if (ref $config ne 'HASH') {
+        die "YAML data in $args{cfg_file} should be an hash\n";
+    }
+}
+else {
+    $config = {
+        (map { defined $args{$_} ? ($_ => $args{$_}) : () } qw(lib log_file)),
+        networks => [
+            {
+                name => 'default',
+                local_plugins => \@plugins,
+                (map {
+                    defined $args{$_} ? ($_ => $args{$_}) : ()
+                } qw(class server nick username ircname ipv6 ssl)),
+            }
+        ],
+    };
+}
+
+require App::Pocoirc;
+App::Pocoirc->new(
+    cfg       => $config,
+    daemonize => $args{daemonize},
+    (map { defined $args{$_} ? ($_ => $args{$_}) : () } qw(verbose))
+)->run();
+
+=encoding utf8
+
+=head1 NAME
+
+pocoirc - A command line tool for launching
+L<POE::Component::IRC|POE::Component::IRC> clients
+
+=head1 SYNOPSIS
+
+B<pocoirc> <options>
+
+ Options:
+   -c FOO, --config FOO         Use config file FOO
+   -d, --daemonize              Run in the background
+   -v, --verbose                Show IRC protocol messages
+   -V, --version                Print version
+   -h, --help                   Print this usage message
+
+ When not using a config file, you can use these:
+   -s FOO, --server FOO         Connect to server FOO
+   -n FOO, --nickname FOO       Use nickname FOO
+   -u FOO, --username FOO       Use username FOO
+   -i FOO, --ircname FOO        Use ircname FOO
+   -p PLUGIN, --plugin PLUGIN   Load plugin PLUGIN (see below)
+   -6, --ipv6,                  Use IPv6
+   -S, --ssl,                   Use SSL
+   -C FOO, --class FOO          E.g. POE::Component:IRC::Qnet::State
+   -I FOO, --lib FOO            A Perl library directory of plugins
+   -l, --log-file               Write status messages to this log file
+
+ PLUGIN mentioned above should consist of the plugin class name, zero or
+ more  whitespace, and possibly a JSON hash of arguments to the plugin's
+ constructor:
+
+  -p AutoJoin
+  -p 'AutoJoin{"ReJoinOnKick":0}'
+  -p 'AutoJoin{"ReJoinOnKick":0,"Channels":["#foo","#bar"]}'
+  -p 'AutoJoin {"ReJoinOnKick": 0, "Channels": ["#foo", "#bar"]}'
+
+ For documentation on the configuration file, do "perldoc App::Pocoirc"
+
+=head1 AUTHOR
+
+Hinrik E<Ouml>rn SigurE<eth>sson, hinrik.sig@gmail.com
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2010 Hinrik E<Ouml>rn SigurE<eth>sson
+
+This program is free software, you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut

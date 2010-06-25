@@ -1,0 +1,85 @@
+NAME
+    App::Pocoirc - The guts of pocoirc
+
+DESCRIPTION
+    This distribution provides a generic way to launch IRC clients which use
+    POE::Component::IRC. The main features are:
+
+    *   Prints useful status information (to your terminal and/or a log
+        file)
+
+    *   Will daemonize if you so wish
+
+    *   Supports a configuration file
+
+    *   Offers a user friendly way to pass arguments to POE::Component::IRC
+
+    *   Supports multiple IRC components and lets you specify which plugins
+        to load locally (one object per component) or globally (single
+        object)
+
+CONFIGURATION
+     nick: foobar1234
+     username: foobar
+
+     global_plugins:
+       - [CTCP]
+
+     local_plugins:
+       - [BotTraffic]
+
+     networks:
+       - name:   freenode
+         server: irc.freenode.net
+         local_plugins:
+           - [AutoJoin, { Channels: ['#foodsfdsf'] } ]
+
+       - name:   magnet
+         server: irc.perl.org
+         nick:   hlagherf32fr
+
+    The configuration file is in YAML format. It consists of a hash
+    containing "global_plugins", "local_plugins", "networks", "lib",
+    "log_file", and default parameters to POE::Component::IRC. Only
+    "networks" is required.
+
+    "lib" is an array of directories containing Perl modules (e.g. plugins).
+    Just like Perl's *-I*.
+
+    "log_file" is the path to a log to which status messages will be
+    written.
+
+  "network"
+    The "network" option should be an array of network hashes. A network
+    hash consists of "name", "local_plugins", and parameters to
+    POE::Component::IRC. Only "name" and "server" (a POE::Component::IRC
+    parameter) are required. The POE::Component::IRC parameters specified in
+    this hash will override the ones specified at the top level.
+
+  Plugins
+    The "global_plugins" and "local_plugins" options should consist of an
+    array containing the short plugin class name (e.g. 'AutoJoin') and
+    optionally a hash of arguments to that plugin. App::Pocoirc will first
+    try to load POE::Component::IRC::Plugin::*your_plugin* before trying to
+    load *your_plugin*.
+
+    The plugins in "global_plugins" will be instantiated once and then added
+    to all IRC components. Note: not all plugins are designed to be used
+    with multiple IRC components simultaneously
+
+    If you specify "local_plugins" at the top level, it will serve as a
+    default list of local plugins, which can be overridden in a network
+    hash.
+
+TODO
+    *   Check if a plugin is already loaded before calling require() on it
+
+AUTHOR
+    Hinrik Örn Sigurðsson, hinrik.sig@gmail.com
+
+LICENSE AND COPYRIGHT
+    Copyright 2010 Hinrik Örn Sigurðsson
+
+    This program is free software, you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+

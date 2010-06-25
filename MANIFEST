@@ -9,6 +9,7 @@ README
 README.pod
 bin/pocoirc
 dist.ini
+example/config.json
 example/config.yml
 lib/App/Pocoirc.pm
 t/01_compile.t

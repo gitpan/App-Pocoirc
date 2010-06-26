@@ -49,7 +49,7 @@ CONFIGURATION
     "log_file" is the path to a log to which status messages will be
     written.
 
-  "network"
+  Networks
     The "network" option should be an array of network hashes. A network
     hash consists of "name", "local_plugins", and parameters to
     POE::Component::IRC. Only "name" and "server" (a POE::Component::IRC
@@ -65,7 +65,7 @@ CONFIGURATION
 
     The plugins in "global_plugins" will be instantiated once and then added
     to all IRC components. Note: not all plugins are designed to be used
-    with multiple IRC components simultaneously
+    with multiple IRC components simultaneously.
 
     If you specify "local_plugins" at the top level, it will serve as a
     default list of local plugins, which can be overridden in a network
@@ -126,9 +126,6 @@ OUTPUT
      2010-06-25 20:21:55 [magnet] Deleted plugin ISupport6
      2010-06-25 20:21:55 [magnet] Deleted plugin CTCP2
      2010-06-25 20:21:55 [magnet] Deleted plugin Whois6
-
-TODO
-    *   Check if a plugin is already loaded before calling require() on it
 
 AUTHOR
     Hinrik Örn Sigurðsson, hinrik.sig@gmail.com

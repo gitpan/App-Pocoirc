@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.02';
+  $App::Pocoirc::VERSION = '0.03';
 }
 
 use strict;
@@ -314,11 +314,10 @@ sub _status {
 
     if (defined $self->{cfg}{log_file}) {
         my $fh;
-        if (!open($fh, '>>', $self->{cfg}{log_file}) && !$self->{daemonize}) {
+        if (!open($fh, '>>:encoding(utf8)', $self->{cfg}{log_file}) && !$self->{daemonize}) {
             warn "Can't open $self->{cfg}{log_file}: $!\n";
         }
 
-        binmode $fh, ':utf8';
         $fh->autoflush(1);
         print $fh $message;
         close $fh;
@@ -446,7 +445,7 @@ Just like Perl's I<-I>.
 
 C<log_file> is the path to a log to which status messages will be written.
 
-=head2 C<network>
+=head2 Networks
 
 The C<network> option should be an array of network hashes. A network hash
 consists of C<name>, C<local_plugins>, and parameters to POE::Component::IRC.
@@ -464,7 +463,7 @@ I<your_plugin>.
 
 The plugins in C<global_plugins> will be instantiated once and then added to
 all IRC components. B<Note:> not all plugins are designed to be used with
-multiple IRC components simultaneously
+multiple IRC components simultaneously.
 
 If you specify C<local_plugins> at the top level, it will serve as a default
 list of local plugins, which can be overridden in a network hash.
@@ -525,14 +524,6 @@ Here is some example output from the program:
  2010-06-25 20:21:55 [magnet] Deleted plugin ISupport6
  2010-06-25 20:21:55 [magnet] Deleted plugin CTCP2
  2010-06-25 20:21:55 [magnet] Deleted plugin Whois6
-
-=head1 TODO
-
-=over 4
-
-=item * Check if a plugin is already loaded before calling require() on it
-
-=back
 
 =head1 AUTHOR
 

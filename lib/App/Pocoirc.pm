@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.05';
+  $App::Pocoirc::VERSION = '0.06';
 }
 
 use strict;
@@ -71,7 +71,6 @@ sub _start {
     $self->_status("Started");
 
     $kernel->sig(DIE => '_exception');
-    $kernel->sig(INT => '_exit');
     
     my @ircs;
 
@@ -139,6 +138,8 @@ sub _start {
 
     delete $self->{global_plugs};
     delete $self->{local_plugs};
+
+    $kernel->sig(INT => '_exit');
 
     return;
 }
@@ -296,6 +297,7 @@ sub irc_plugin_error {
 
 sub irc_raw {
     my ($self, $raw) = @_[OBJECT, ARG0];
+    return if !$self->{verbose};
     my $irc = $_[SENDER]->get_heap();
     $self->_status("->$raw", $irc);
     return;

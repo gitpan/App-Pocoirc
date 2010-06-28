@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.08';
+  $App::Pocoirc::VERSION = '0.09';
 }
 
 use strict;
@@ -77,8 +77,6 @@ sub _start {
 
     $kernel->sig(DIE => '_exception');
     
-    my @ircs;
-
     if (defined $self->{cfg}{lib} && @{ $self->{cfg}{lib} }) {
         unshift @INC, @{ $self->{cfg}{lib} };
     }
@@ -89,9 +87,9 @@ sub _start {
 
     # construct IRC components
     for my $opts (@{ $self->{cfg}{networks} }) {
-        die "Network name missing\n" if !defined $opts->{name};
         my $network = delete $opts->{name};
         my $class = delete $opts->{class};
+        die "Network name missing\n" if !defined $network;
         
         while (my ($opt, $value) = each %{ $self->{cfg} }) {
             $opts->{$opt} = $value if !defined $opts->{$opt};
@@ -113,10 +111,8 @@ sub _start {
         $self->_status('Spawning IRC component', $network);
         my $irc = $class->spawn(%$opts);
 
-        push @ircs, [$network, $irc];
+        push @{ $self->{ircs} }, [$network, $irc];
     }
-
-    $self->{ircs} = \@ircs;
 
     for my $entry (@{ $self->{ircs} }) {
         my ($network, $irc) = @$entry;
@@ -379,8 +375,13 @@ sub _create_plugins {
 sub _exception {
     my ($kernel, $self, $ex) = @_[KERNEL, OBJECT, ARG1];
     chomp $ex->{error_str};
-    warn "Event $ex->{event} in session "
-        .$ex->{dest_session}->ID." raised exception:\n  $ex->{error_str}\n";
+
+    my @errors = (
+        "Event $ex->{event} in session ".$ex->{dest_session}->ID." raised exception:",
+        "    $ex->{error_str}",
+    );
+
+    $self->_status($_, undef, 1) for @errors;
     $self->_shutdown('Caught exception');
     $kernel->sig_handled();
     return;

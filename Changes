@@ -1,5 +1,9 @@
 Revision history for POE-Quickie
 
+0.07  Mon Jun 28 19:55:27 GMT 2010
+    - Use terminal colors for status messages, to easily differentiate it
+      from other output
+
 0.06  Sun Jun 27 08:34:55 GMT 2010
     - Don't print raw protocol lines simply because some plugin happens to
       enable raw events in POE::Component::IRC

@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.06';
+  $App::Pocoirc::VERSION = '0.07';
 }
 
 use strict;
@@ -23,6 +23,11 @@ sub run {
         open my $fh, '>>', $self->{cfg}{log_file}
             or die "Can't open $self->{cfg}{log_file}: $!\n";
         close $fh;
+    }
+
+    if (!$self->{no_color}) {
+        require Term::ANSIColor;
+        Term::ANSIColor->import();
     }
 
     if ($self->{daemonize}) {
@@ -304,7 +309,7 @@ sub irc_raw {
 }
 
 sub _status {
-    my ($self, $message, $context) = @_;
+    my ($self, $message, $context, $error) = @_;
 
     my $stamp = strftime('%Y-%m-%d %H:%M:%S', localtime);
     my $irc; eval { $irc = $context->isa('POE::Component::IRC') };
@@ -312,7 +317,15 @@ sub _status {
     $context = defined $context ? " [$context]" : '';
     
     $message = "$stamp$context $message\n";
-    print $message if !$self->{daemonize};
+
+    if (!$self->{daemonize}) {
+        if ($error) {
+            print colored($message, 'red');
+        }
+        else {
+            print colored($message, 'green');
+        }
+    }
 
     if (defined $self->{cfg}{log_file}) {
         my $fh;

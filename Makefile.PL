@@ -30,7 +30,7 @@ my %WriteMakefileArgs = (
     'Test::Script' => '1.05',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.09',
+  'VERSION' => '0.10',
   'test' => {
     'TESTS' => 't/*.t'
   }

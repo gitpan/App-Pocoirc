@@ -11,7 +11,10 @@ use ExtUtils::MakeMaker 6.31;
 my %WriteMakefileArgs = (
   'ABSTRACT' => 'The guts of L<pocoirc>',
   'AUTHOR' => 'Hinrik Örn Sigurðsson <hinrik.sig@gmail.com>',
-  'BUILD_REQUIRES' => {},
+  'BUILD_REQUIRES' => {
+    'Test::More' => '0.47',
+    'Test::Script' => '1.05'
+  },
   'CONFIGURE_REQUIRES' => {
     'ExtUtils::MakeMaker' => '6.31'
   },
@@ -26,11 +29,9 @@ my %WriteMakefileArgs = (
     'POE::Component::IRC::State' => '6.35',
     'Proc::Daemon' => '0.02',
     'Term::ANSIColor' => '0',
-    'Test::More' => '0.47',
-    'Test::Script' => '1.05',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.10',
+  'VERSION' => '0.11',
   'test' => {
     'TESTS' => 't/*.t'
   }

@@ -5,26 +5,22 @@ use warnings;
 use Getopt::Long qw(:config autohelp no_ignore_case);
 use Pod::Usage;
 
-my $procname = 'pocoirc';
-$0 = $procname;
-if ($] < 5.013000 && $^O eq 'linux') {
-    local $@;
-    eval {
-        require Sys::Prctl;
-        Sys::Prctl::prctl_name($procname);
-    };
-}
-
 my %args;
 GetOptions(
-    'c|config=s'   => \$args{cfg_file},
+    # program options
+    'c|check'      => \$args{check_cfg},
+    'f|config=s'   => \$args{cfg_file},
     'v|verbose'    => \$args{verbose},
     'd|daemonize'  => \$args{daemonize},
     'N|no-color'   => \$args{no_color},
-    '6|ipv6'       => \$args{ipv6},
-    'S|ssl'        => \$args{ssl},
+
+    # global config options
     'I|lib=s@'     => \$args{lib},
     'l|log-file=s' => \$args{log_file},
+
+    # network-specific config options
+    '6|ipv6'       => \$args{ipv6},
+    'S|ssl'        => \$args{ssl},
     'C|class=s'    => \$args{class},
     's|server=s'   => \$args{server},
     'n|nick=s'     => \$args{nick},
@@ -39,6 +35,16 @@ GetOptions(
         print "Version $version\n";
     },
 ) or pod2usage();
+
+my $procname = 'pocoirc';
+$0 = $procname;
+if ($] < 5.013000 && $^O eq 'linux') {
+    local $@;
+    eval {
+        require Sys::Prctl;
+        Sys::Prctl::prctl_name($procname);
+    };
+}
 
 my $config;
 if (defined $args{cfg_file}) {
@@ -121,7 +127,7 @@ App::Pocoirc->new(
     cfg       => $config,
     (map {
         defined $args{$_} ? ($_ => $args{$_}) : ()
-    } qw(daemonize verbose no_color))
+    } qw(check_cfg daemonize verbose no_color))
 )->run();
 
 =encoding utf8
@@ -136,7 +142,8 @@ L<POE::Component::IRC|POE::Component::IRC> clients
 B<pocoirc> <options>
 
  Options:
-   -c FOO, --config FOO         Use config file FOO
+   -c, --check                  Check if config is valid and code compiles
+   -f FOO, --config FOO         Use config file FOO
    -d, --daemonize              Run in the background
    -v, --verbose                Show IRC protocol messages
    -N, --no-color               Don't use terminal colors
@@ -152,11 +159,11 @@ B<pocoirc> <options>
    -6, --ipv6,                  Use IPv6
    -S, --ssl,                   Use SSL
    -C FOO, --class FOO          E.g. POE::Component:IRC::Qnet::State
-   -I FOO, --lib FOO            A Perl library directory of plugins
+   -I FOO, --lib FOO            A Perl library directory to include
    -l, --log-file               Write status messages to this log file
 
- PLUGIN mentioned above should consist of the plugin class name, zero or
- more  whitespace, and possibly a JSON hash of arguments to the plugin's
+ PLUGIN mentioned above should consist of the short class name, zero or
+ more whitespace, and possibly a JSON hash of arguments to the plugin's
  constructor:
 
   -p AutoJoin

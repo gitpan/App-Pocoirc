@@ -2,7 +2,9 @@
 abstract: 'The guts of L<pocoirc>'
 author:
   - 'Hinrik Örn Sigurðsson <hinrik.sig@gmail.com>'
-build_requires: {}
+build_requires:
+  Test::More: 0.47
+  Test::Script: 1.05
 configure_requires:
   ExtUtils::MakeMaker: 6.31
 dynamic_config: 0
@@ -23,8 +25,6 @@ requires:
   POE::Component::IRC::State: 6.35
   Proc::Daemon: 0.02
   Term::ANSIColor: 0
-  Test::More: 0.47
-  Test::Script: 1.05
   YAML::XS: 0
   perl: 5.008
 resources:
@@ -32,5 +32,5 @@ resources:
   homepage: http://search.cpan.org/dist/App-Pocoirc/
   license: http://dev.perl.org/licenses/
   repository: git://github.com/hinrik/app-pocoirc.git
-version: 0.10
+version: 0.11
 x_authority: cpan:HINRIK

@@ -50,9 +50,9 @@ CONFIGURATION
     written.
 
   Networks
-    The "network" option should be an array of network hashes. A network
+    The "networks" option should be an array of network hashes. A network
     hash consists of "name", "local_plugins", and parameters to
-    POE::Component::IRC. Only "name" (and "server" if not defined the top
+    POE::Component::IRC. Only "name" (and "server" if not defined at the top
     level) is required. The POE::Component::IRC parameters specified in this
     hash will override the ones specified at the top level.
 

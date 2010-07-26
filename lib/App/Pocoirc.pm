@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.12';
+  $App::Pocoirc::VERSION = '0.13';
 }
 
 use strict;
@@ -20,12 +20,26 @@ sub new {
 sub run {
     my ($self) = @_;
 
+    $self->_setup();
+
+    if ($self->{check_cfg}) {
+        print "Config file is valid and all modules could be compiled.\n";
+        return;
+    }
+
+    if ($self->{daemonize}) {
+        require Proc::Daemon;
+        eval { Proc::Daemon::Init->() };
+        chomp $@;
+        die "Can't daemonize: $@\n" if $@;
+    }
+
     POE::Session->create(
         object_states => [
             $self => [qw(
                 _start
-                _exception
-                _exit
+                sig_die
+                sig_int
                 irc_connected
                 irc_disconnected
                 irc_snotice
@@ -53,26 +67,44 @@ sub run {
     return;
 }
 
-sub _start {
-    my ($kernel, $session, $self) = @_[KERNEL, SESSION, OBJECT];
+# compilation and config validation
+sub _setup {
+    my ($self) = @_;
 
-    # misc things
-    $self->_global_setup();
+    if (my $log = delete $self->{cfg}{log_file}) {
+        open my $fh, '>>', $log or die "Can't open $log: $!\n";
+        close $fh;
+        $self->{log_file} = $log;
+    }
 
-    # compilation and config validation
-    $self->_require_plugin($_) for @{ $self->{cfg}{global_plugins} || [] };
+    if (!$self->{no_color}) {
+        require Term::ANSIColor;
+        Term::ANSIColor->import();
+    }
+
+    if (defined $self->{cfg}{lib} && @{ $self->{cfg}{lib} }) {
+        my $lib = delete $self->{cfg}{lib};
+        unshift @INC, @$lib;
+    }
+
+    for my $plug_spec (@{ $self->{cfg}{global_plugins} || [] }) {
+        $self->_require_plugin($plug_spec);
+    }
+
     for my $opts (@{ $self->{cfg}{networks} }) {
-        $self->_require_plugin($_) for @{ $opts->{local_plugins} || [] };
-
         die "Network name missing\n" if !defined $opts->{name};
-
-        if (!defined $opts->{server}) {
-            die "Server for network '$opts->{name}' not specified\n";
-        }
 
         while (my ($opt, $value) = each %{ $self->{cfg} }) {
             next if $opt =~ /^(?:networks|global_plugins|local_plugins)$/;
             $opts->{$opt} = $value if !defined $opts->{$opt};
+        }
+
+        for my $plug_spec (@{ $opts->{local_plugins} || [] }) {
+            $self->_require_plugin($plug_spec);
+        }
+
+        if (!defined $opts->{server}) {
+            die "Server for network '$opts->{name}' not specified\n";
         }
 
         $opts->{class} = 'POE::Component::IRC::State' if !defined $opts->{class};
@@ -81,26 +113,15 @@ sub _start {
         die "Can't load class $opts->{class}: $@\n" if $@;
     }
 
-    if ($self->{check_cfg}) {
-        print "Config file is valid all modules could be compiled.\n";
-        return;
-    }
+    return;
+}
 
-    if ($self->{daemonize}) {
-        require Proc::Daemon;
-        eval { Proc::Daemon::Init->() };
-        chomp $@;
-        die "Can't daemonize: $@\n" if $@;
-    }
+# create plugins, spawn components, and connect to IRC
+sub _start {
+    my ($kernel, $session, $self) = @_[KERNEL, SESSION, OBJECT];
 
-    # all exceptions will now be colored & timestamped status messages
-    $kernel->sig(DIE => '_exception');
-
-    # this can not be done earlier due to a bug in Perl 5.12 which causes
-    # the compilation of Net::DNS (used by POE::Component::IRC) to clear
-    # the signal handler
-    $kernel->sig(INT => '_exit');
-
+    $kernel->sig(DIE => 'sig_die');
+    $kernel->sig(INT => 'sig_int');
     $self->_status("Started");
 
     # construct global plugins
@@ -147,29 +168,6 @@ sub _start {
 
     delete $self->{global_plugs};
     delete $self->{local_plugs};
-
-    return;
-}
-
-# a few things to take care of at start up
-sub _global_setup {
-    my ($self) = @_;
-
-    if (my $log = delete $self->{cfg}{log_file}) {
-        open my $fh, '>>', $log or die "Can't open $log: $!\n";
-        close $fh;
-        $self->{log_file} = $log;
-    }
-
-    if (!$self->{no_color}) {
-        require Term::ANSIColor;
-        Term::ANSIColor->import();
-    }
-
-    if (defined $self->{cfg}{lib} && @{ $self->{cfg}{lib} }) {
-        my $lib = delete $self->{cfg}{lib};
-        unshift @INC, @$lib;
-    }
 
     return;
 }
@@ -381,6 +379,7 @@ sub _irc_to_network {
 sub _require_plugin {
     my ($self, $plug_spec) = @_;
 
+    return if defined $plug_spec->[2];
     my ($class, $args) = @$plug_spec;
     $args = {} if !defined $args;
 
@@ -417,7 +416,7 @@ sub _create_plugins {
     return \@return;
 }
 
-sub _exception {
+sub sig_die {
     my ($kernel, $self, $ex) = @_[KERNEL, OBJECT, ARG1];
     chomp $ex->{error_str};
 
@@ -432,7 +431,7 @@ sub _exception {
     return;
 }
 
-sub _exit {
+sub sig_int {
     my ($kernel, $self) = @_[KERNEL, OBJECT];
 
     $self->_status('Caught interrupt signal, exiting...');
@@ -447,9 +446,9 @@ sub _shutdown {
     if (!$self->{shutdown}) {
         for my $irc (@{ $self->{ircs} }) {
             my ($network, $obj) = @$irc;
-            $obj->connected
+            $obj->logged_in
                 ? $obj->yield(quit => $reason)
-                : $obj->yield('shutdown');
+                : $obj->yield(shutdown => $reason);
         }
         $self->{shutdown} = 1;
     }
@@ -519,9 +518,9 @@ C<log_file> is the path to a log to which status messages will be written.
 
 =head2 Networks
 
-The C<network> option should be an array of network hashes. A network hash
+The C<networks> option should be an array of network hashes. A network hash
 consists of C<name>, C<local_plugins>, and parameters to POE::Component::IRC.
-Only C<name> (and C<server> if not defined the top level) is required.
+Only C<name> (and C<server> if not defined at the top level) is required.
 The POE::Component::IRC parameters specified in this hash will override the
 ones specified at the top level.
 

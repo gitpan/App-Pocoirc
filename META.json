@@ -36,7 +36,7 @@
       "runtime" : {
          "requires" : {
             "JSON::XS" : 0,
-            "POE::Component::IRC::State" : "6.35",
+            "POE::Component::IRC::State" : "6.36",
             "Proc::Daemon" : "0.02",
             "Term::ANSIColor" : 0,
             "YAML::XS" : 0,
@@ -60,7 +60,7 @@
          "web" : "http://github.com/hinrik/app-pocoirc"
       }
    },
-   "version" : "0.12",
+   "version" : "0.13",
    "x_authority" : "cpan:HINRIK"
 }
 

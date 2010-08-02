@@ -3,11 +3,15 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.13';
+  $App::Pocoirc::VERSION = '0.14';
 }
 
 use strict;
 use warnings;
+
+# we want instant child process reaping
+sub POE::Kernel::USE_SIGCHLD () { return 1 }
+
 use IO::Handle;
 use POE;
 use POSIX 'strftime';
@@ -319,7 +323,7 @@ sub irc_plugin_del {
 sub irc_plugin_error {
     my ($self, $error) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_status($error, $irc);
+    $self->_status($error, $irc, 1);
     return;
 }
 

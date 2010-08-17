@@ -13,10 +13,3 @@ example/config.json
 example/config.yml
 lib/App/Pocoirc.pm
 t/01_compile.t
-t/release-pod-syntax.t
-utils/developer/git-pre-commit
-xt/perl_critic.t
-xt/perl_critic_t.t
-xt/perlcriticrc
-xt/perlcriticrc_t
-xt/pod.t

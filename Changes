@@ -1,4 +1,8 @@
-Revision history for POE-Quickie
+Revision history for App-Pocoirc
+
+0.15  Tue Aug 17 22:33:32 GMT 2010
+    - Terminate gracefully when we get SIGTERM
+    - Make all warnings fatal
 
 0.14  Mon Aug 2 07:46:04 GMT 2010
     - Enable USE_SIGCHLD in POE for instant child process reaping. Might make

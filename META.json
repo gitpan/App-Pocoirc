@@ -4,7 +4,7 @@
       "Hinrik \u00c3\u0096rn Sigur\u00c3\u00b0sson <hinrik.sig@gmail.com>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 4.101612, CPAN::Meta::Converter version 2.101670",
+   "generated_by" : "Dist::Zilla version 4.102340, CPAN::Meta::Converter version 2.102400",
    "license" : [
       "perl_5"
    ],
@@ -36,7 +36,7 @@
       "runtime" : {
          "requires" : {
             "JSON::XS" : 0,
-            "POE::Component::IRC::State" : "6.36",
+            "POE::Component::IRC::State" : "6.39",
             "Proc::Daemon" : "0.02",
             "Term::ANSIColor" : 0,
             "YAML::XS" : 0,
@@ -60,7 +60,7 @@
          "web" : "http://github.com/hinrik/app-pocoirc"
       }
    },
-   "version" : "0.15",
+   "version" : "0.16",
    "x_authority" : "cpan:HINRIK"
 }
 

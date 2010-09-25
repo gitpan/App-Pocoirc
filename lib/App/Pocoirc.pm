@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.16';
+  $App::Pocoirc::VERSION = '0.17';
 }
 
 use strict;
@@ -50,6 +50,7 @@ sub run {
                 irc_snotice
                 irc_notice
                 irc_001
+                irc_identified
                 irc_quit
                 irc_nick
                 irc_join
@@ -218,6 +219,14 @@ sub irc_001 {
     my $irc = $_[SENDER]->get_heap();
     my $nick = $irc->nick_name();
     $self->_status("Logged in to server $server with nick $nick", $irc);
+    return;
+}
+
+sub irc_identified {
+    my ($self) = $_[OBJECT];
+    my $irc = $_[SENDER]->get_heap();
+    my $nick = $irc->nick_name();
+    $self->_status("Identified with NickServ as $nick", $irc);
     return;
 }
 

@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-BEGIN { require 5.008; }
+ BEGIN { require 5.008; } 
 
 use ExtUtils::MakeMaker 6.31;
 
@@ -27,12 +27,12 @@ my %WriteMakefileArgs = (
   'PREREQ_PM' => {
     'JSON::XS' => '0',
     'POE' => '1.292',
-    'POE::Component::IRC::State' => '6.42',
+    'POE::Component::IRC::State' => '6.43',
     'Proc::Daemon' => '0.02',
     'Term::ANSIColor' => '0',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.17',
+  'VERSION' => '0.18',
   'test' => {
     'TESTS' => 't/*.t'
   }

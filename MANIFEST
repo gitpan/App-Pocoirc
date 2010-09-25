@@ -11,4 +11,5 @@ dist.ini
 example/config.json
 example/config.yml
 lib/App/Pocoirc.pm
+lib/App/Pocoirc/Status.pm
 t/01_compile.t

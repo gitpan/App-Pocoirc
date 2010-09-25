@@ -1,5 +1,13 @@
 Revision history for App-Pocoirc
 
+0.18  Sat Sep 25 21:31:33 GMT 2010
+    - Add -t/--trace option to trace events
+    - Fix compilation test for the pocoirc script
+    - Move -P/--plugin to -L/--plugin
+    - Move -p/--password to -P/--password
+    - Add -p/--port to specify the server port
+    - Log our process id on startup
+
 0.17  Sat Sep 25 09:42:36 UTC 2010
     - Move -p/--plugin to -P/--plugin
     - Add -p/--password for specifying a server password

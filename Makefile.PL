@@ -32,7 +32,7 @@ my %WriteMakefileArgs = (
     'Term::ANSIColor' => '0',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.18',
+  'VERSION' => '0.19',
   'test' => {
     'TESTS' => 't/*.t'
   }

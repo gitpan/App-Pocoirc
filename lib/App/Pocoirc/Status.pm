@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::Status::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::Status::VERSION = '0.19';
+  $App::Pocoirc::Status::VERSION = '0.20';
 }
 
 use strict;

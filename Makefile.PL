@@ -27,12 +27,13 @@ my %WriteMakefileArgs = (
   'PREREQ_PM' => {
     'JSON::XS' => '0',
     'POE' => '1.292',
-    'POE::Component::IRC::State' => '6.43',
+    'POE::Component::Client::DNS' => '0.99',
+    'POE::Component::IRC::State' => '6.45',
     'Proc::Daemon' => '0.02',
     'Term::ANSIColor' => '0',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.19',
+  'VERSION' => '0.20',
   'test' => {
     'TESTS' => 't/*.t'
   }

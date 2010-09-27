@@ -14,7 +14,7 @@ GetOptions(
     'v|verbose'    => \$args{verbose},
     't|trace'      => \$args{trace},
     'd|daemonize'  => \$args{daemonize},
-    'N|no-color'   => \$args{no_color},
+    'b|no-color'   => \$args{no_color},
 
     # global config options
     'I|lib=s@'     => \$args{lib},
@@ -169,8 +169,7 @@ App::Pocoirc->new(
 
 =head1 NAME
 
-pocoirc - A command line tool for launching
-L<POE::Component::IRC|POE::Component::IRC> clients
+pocoirc - A command line tool for launching L<POE::Component::IRC|POE::Component::IRC> clients
 
 =head1 SYNOPSIS
 

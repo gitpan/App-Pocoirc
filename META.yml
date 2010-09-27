@@ -1,5 +1,5 @@
 ---
-abstract: 'The guts of L<pocoirc>'
+abstract: 'A command line tool for launching L<POE::Component::IRC|POE::Component::IRC> clients'
 author:
   - 'Hinrik Örn Sigurðsson <hinrik.sig@gmail.com>'
 build_requires:
@@ -34,5 +34,5 @@ resources:
   homepage: http://search.cpan.org/dist/App-Pocoirc/
   license: http://dev.perl.org/licenses/
   repository: git://github.com/hinrik/app-pocoirc.git
-version: 0.20
+version: 0.21
 x_authority: cpan:HINRIK

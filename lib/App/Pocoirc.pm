@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.20';
+  $App::Pocoirc::VERSION = '0.21';
 }
 
 use strict;
@@ -186,7 +186,7 @@ sub _start {
 sub irc_plugin_add {
     my ($self, $alias) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_status("EVENT S_plugin_add", $irc, 'debug') if $self->{trace};
+    $self->_status("Event S_plugin_add", $irc, 'debug') if $self->{trace};
     $self->_status("Added plugin $alias", $irc);
     return;
 }
@@ -194,7 +194,7 @@ sub irc_plugin_add {
 sub irc_plugin_del {
     my ($self, $alias) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_status("EVENT S_plugin_del", $irc, 'debug') if $self->{trace};
+    $self->_status("Event S_plugin_del", $irc, 'debug') if $self->{trace};
     $self->_status("Deleted plugin $alias", $irc);
     return;
 }
@@ -202,7 +202,7 @@ sub irc_plugin_del {
 sub irc_plugin_error {
     my ($self, $error) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_status("EVENT S_plugin_error", $irc, 'debug') if $self->{trace};
+    $self->_status("Event S_plugin_error", $irc, 'debug') if $self->{trace};
     $self->_status($error, $irc, 'error');
     return;
 }
@@ -226,19 +226,29 @@ sub _status {
     $context = $self->_irc_to_network($context) if $irc;
     $context = defined $context ? " [$context]\t" : ' ';
 
-    $message = "$stamp$context$message";
+    if (defined $type && $type eq 'error') {
+        $message = "!!! $message";
+    }
+    elsif (defined $type && $type eq 'debug') {
+        $message = ">>> $message";
+    }
 
-    if (!$self->{daemonize}) {
+    my $log_line = "$stamp$context$message";
+    my $term_line = $log_line;
+
+    if (!$self->{no_color}) {
         if (defined $type && $type eq 'error') {
-            print colored($message, 'red'), "\n";
+            $term_line = colored($term_line, 'red');
         }
         elsif (defined $type && $type eq 'debug') {
-            print colored($message, 'yellow'), "\n";
+            $term_line = colored($term_line, 'yellow');
         }
         else {
-            print colored($message, 'green'), "\n";
+            $term_line = colored($term_line, 'green');
         }
     }
+
+    print $term_line, "\n" if !$self->{daemonize};
 
     if (defined $self->{log_file}) {
         my $fh;
@@ -247,7 +257,7 @@ sub _status {
         }
 
         $fh->autoflush(1);
-        print $fh $message, "\n";
+        print $fh $log_line, "\n";
         close $fh;
     }
 
@@ -388,7 +398,7 @@ sub quit_timeout {
 
 =head1 NAME
 
-App::Pocoirc - The guts of L<pocoirc>
+App::Pocoirc - A command line tool for launching L<POE::Component::IRC|POE::Component::IRC> clients
 
 =head1 DESCRIPTION
 

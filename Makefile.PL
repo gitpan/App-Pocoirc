@@ -9,7 +9,7 @@ use ExtUtils::MakeMaker 6.31;
 
 
 my %WriteMakefileArgs = (
-  'ABSTRACT' => 'The guts of L<pocoirc>',
+  'ABSTRACT' => 'A command line tool for launching L<POE::Component::IRC|POE::Component::IRC> clients',
   'AUTHOR' => 'Hinrik Örn Sigurðsson <hinrik.sig@gmail.com>',
   'BUILD_REQUIRES' => {
     'Test::More' => '0.47',
@@ -33,7 +33,7 @@ my %WriteMakefileArgs = (
     'Term::ANSIColor' => '0',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.20',
+  'VERSION' => '0.21',
   'test' => {
     'TESTS' => 't/*.t'
   }

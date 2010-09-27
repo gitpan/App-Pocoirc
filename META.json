@@ -1,5 +1,5 @@
 {
-   "abstract" : "The guts of L<pocoirc>",
+   "abstract" : "A command line tool for launching L<POE::Component::IRC|POE::Component::IRC> clients",
    "author" : [
       "Hinrik \u00c3\u0096rn Sigur\u00c3\u00b0sson <hinrik.sig@gmail.com>"
    ],
@@ -62,7 +62,7 @@
          "web" : "http://github.com/hinrik/app-pocoirc"
       }
    },
-   "version" : "0.20",
+   "version" : "0.21",
    "x_authority" : "cpan:HINRIK"
 }
 

@@ -1,5 +1,6 @@
 NAME
-    App::Pocoirc - The guts of pocoirc
+    App::Pocoirc - A command line tool for launching POE::Component::IRC
+    clients
 
 DESCRIPTION
     This distribution provides a generic way to launch IRC clients which use

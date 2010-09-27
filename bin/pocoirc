@@ -9,16 +9,18 @@ use Pod::Usage;
 my %args;
 GetOptions(
     # program options
-    'c|check'      => \$args{check_cfg},
-    'f|config=s'   => \$args{cfg_file},
-    'v|verbose'    => \$args{verbose},
-    't|trace'      => \$args{trace},
-    'd|daemonize'  => \$args{daemonize},
-    'b|no-color'   => \$args{no_color},
+    'c|check'        => \$args{check_cfg},
+    'f|config=s'     => \$args{cfg_file},
+    'v|verbose'      => \$args{verbose},
+    't|trace'        => \$args{trace},
+    'd|daemonize'    => \$args{daemonize},
+    'b|no-color'     => \$args{no_color},
+    'L|list-plugins' => \$args{list_plugins},
 
     # global config options
-    'I|lib=s@'     => \$args{lib},
-    'l|log-file=s' => \$args{log_file},
+    'I|lib=s@'       => \$args{lib},
+    'l|log-file=s'   => \$args{log_file},
+    'F|pid-file=s'   => \$args{pid_file},
 
     # network-specific config options
     '6|ipv6'         => \$args{ipv6},
@@ -32,8 +34,9 @@ GetOptions(
     'i|ircname=s'    => \$args{ircname},
     'j|join=s@'      => \$args{chan_specs},
     'N|nspassword=s' => \$args{nspassword},
-    'L|plugin=s@'    => \$args{plugin_specs},
+    'U|plugin=s@'    => \$args{plugin_specs},
     'a|arg=s@'       => \$args{args},
+
     'V|version'      => sub {
         no strict 'vars';
         my $version = defined $App::Pocoirc::VERSION
@@ -144,7 +147,7 @@ else {
     }
 
     $config = {
-        (map { defined $args{$_} ? ($_ => $args{$_}) : () } qw(lib log_file)),
+        (map { defined $args{$_} ? ($_ => $args{$_}) : () } qw(lib log_file pid_file)),
         networks => [
             {
                 name => 'default',
@@ -162,7 +165,7 @@ App::Pocoirc->new(
     cfg       => $config,
     (map {
         defined $args{$_} ? ($_ => $args{$_}) : ()
-    } qw(check_cfg daemonize verbose trace no_color))
+    } qw(check_cfg daemonize verbose trace no_color list_plugins))
 )->run();
 
 =encoding utf8
@@ -181,7 +184,8 @@ B<pocoirc> <options>
    -d, --daemonize              Run in the background
    -v, --verbose                Show IRC protocol messages
    -t, --trace                  Show all IRC events
-   -N, --no-color               Don't use terminal colors
+   -L, --list-plugins           List available plugins
+   -b, --no-color               Don't use terminal colors
    -V, --version                Print version
    -h, --help                   Print this usage message
 
@@ -194,13 +198,16 @@ B<pocoirc> <options>
    -i FOO, --ircname FOO        Use ircname FOO
    -j FOO, --join FOO           Join channel FOO (see below)
    -N FOO, --nspassword FOO     NickServ password (see below)
-   -L FOO, --plugin FOO         Load plugin FOO (see below)
+   -U FOO, --plugin FOO         Load plugin FOO (see below)
    -6, --ipv6,                  Use IPv6
    -S, --ssl,                   Use SSL
    -a FOO:BAR, --arg FOO:BAR    Arbitrary argument to POE::Component::IRC
    -C FOO, --class FOO          E.g. POE::Component:IRC::Qnet::State
    -I FOO, --lib FOO            A Perl library directory to include
    -l, --log-file               Write status messages to this log file
+
+ When you specify a pid file with -F, pocoirc will refuse to run if the pid
+ file already exists.
 
  Arguments to the -j option can be a channel name (e.g. '#foo') or a channel
  name and a password separated by a colon (e.g. '#foo:bar'). If you specify
@@ -210,14 +217,14 @@ B<pocoirc> <options>
  When you use the -N option, a NickServID plugin will be added for you with
  the supplied password.
 
- Arguments to the -L option should consist of the short class name, zero or
+ Arguments to the -U option should consist of the short class name, zero or
  more whitespace, and possibly a JSON hash of arguments to the plugin's
  constructor:
 
-  -L AutoJoin
-  -L 'AutoJoin{"ReJoinOnKick":0}'
-  -L 'AutoJoin{"ReJoinOnKick":0,"Channels":["#foo","#bar"]}'
-  -L 'AutoJoin {"ReJoinOnKick": 0, "Channels": ["#foo", "#bar"]}'
+  -U AutoJoin
+  -U 'AutoJoin{"ReJoinOnKick":0}'
+  -U 'AutoJoin{"ReJoinOnKick":0,"Channels":["#foo","#bar"]}'
+  -U 'AutoJoin {"ReJoinOnKick": 0, "Channels": ["#foo", "#bar"]}'
 
  For documentation on the configuration file, do "perldoc App::Pocoirc"
 

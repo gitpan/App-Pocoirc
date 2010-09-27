@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.22';
+  $App::Pocoirc::VERSION = '0.23';
 }
 
 use strict;
@@ -15,8 +15,12 @@ sub POE::Kernel::USE_SIGCHLD () { return 1 }
 use App::Pocoirc::Status;
 use IO::Handle;
 use POE;
+use POE::Component::IRC::Common qw(irc_to_utf8);
 use POE::Component::Client::DNS;
 use POSIX 'strftime';
+use Module::Pluggable
+    sub_name    => '_available_plugins',
+    search_path => 'POE::Component::IRC::Plugin';
 
 sub new {
     my ($package, %args) = @_;
@@ -25,6 +29,14 @@ sub new {
 
 sub run {
     my ($self) = @_;
+
+    if ($self->{list_plugins}) {
+        for my $plugin ($self->_available_plugins()) {
+            $plugin =~ s/^POE::Component::IRC::Plugin:://;
+            print $plugin, "\n";
+        }
+        return;
+    }
 
     $self->_setup();
 
@@ -40,6 +52,14 @@ sub run {
         die "Can't daemonize: $@\n" if $@;
     }
 
+    if (defined $self->{cfg}{pid_file}) {
+        my $file = $self->{cfg}{pid_file};
+        die "Pid file already exists. Pocoirc already running?\n" if -e $file;
+        open my $fh, '>', $file or die "Can't create pid file $file: $!\n";
+        print $fh "$$\n";
+        close $fh;
+    }
+
     POE::Session->create(
         object_states => [
             $self => [qw(
@@ -52,11 +72,13 @@ sub run {
                 irc_plugin_del
                 irc_plugin_error
                 irc_disconnected
+                irc_433
             )],
         ],
     );
 
     $poe_kernel->run();
+    unlink $self->{cfg}{pid_file} if defined $self->{cfg}{pid_file};
     return;
 }
 
@@ -178,6 +200,17 @@ sub _start {
     delete $self->{global_plugs};
     delete $self->{local_plugs};
 
+    return;
+}
+
+# let's log this if it's preventing us from logging in
+sub irc_433 {
+    my $self = $_[OBJECT];
+    my $irc = $_[SENDER]->get_heap();
+    my $reason = irc_to_utf8($_[ARG2]->[1]);
+    return if $irc->logged_in();
+    my $nick = $irc->nick_name();
+    $self->_status("Unable to log in: $reason", $irc);
     return;
 }
 

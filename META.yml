@@ -22,6 +22,7 @@ no_index:
     - example
 requires:
   JSON::XS: 0
+  Module::Pluggable: 0
   POE: 1.292
   POE::Component::Client::DNS: 0.99
   POE::Component::IRC::State: 6.45
@@ -34,5 +35,5 @@ resources:
   homepage: http://search.cpan.org/dist/App-Pocoirc/
   license: http://dev.perl.org/licenses/
   repository: git://github.com/hinrik/app-pocoirc.git
-version: 0.22
+version: 0.23
 x_authority: cpan:HINRIK

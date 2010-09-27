@@ -3,12 +3,13 @@ BEGIN {
   $App::Pocoirc::Status::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::Status::VERSION = '0.22';
+  $App::Pocoirc::Status::VERSION = '0.23';
 }
 
 use strict;
 use warnings FATAL => 'all';
 use Carp;
+use POE::Component::IRC::Common qw(irc_to_utf8 strip_color strip_formatting);
 use POE::Component::IRC::Plugin qw(PCI_EAT_NONE);
 
 sub new {
@@ -22,7 +23,7 @@ sub new {
 sub PCI_register {
     my ($self, $irc) = @_;
 
-    $irc->raw_events(1) if $self->{Trace} || $self->{Verbose};
+    $irc->raw_events(1) if $self->{Verbose};
 
     if ($self->{Trace}) {
         $irc->plugin_register($self, 'SERVER', 'all');
@@ -56,6 +57,14 @@ sub PCI_unregister {
     return 1;
 }
 
+sub _normalize {
+    my ($line) = @_;
+    $line = irc_to_utf8($line);
+    $line = strip_color($line);
+    $line = strip_formatting($line);
+    return $line;
+}
+
 sub S_connected {
     my ($self, $irc) = splice @_, 0, 2;
     my $address = ${ $_[0] };
@@ -74,7 +83,7 @@ sub S_disconnected {
 
 sub S_snotice {
     my ($self, $irc) = splice @_, 0, 2;
-    my $notice = ${ $_[0] };
+    my $notice = _normalize(${ $_[0] });
     $self->{Pocoirc}->_status("Event S_snotice", $irc, 'debug') if $self->{Trace};
     $self->{Pocoirc}->_status("Server notice: $notice", $irc);
     return PCI_EAT_NONE;
@@ -82,8 +91,8 @@ sub S_snotice {
 
 sub S_notice {
     my ($self, $irc) = splice @_, 0, 2;
-    my $sender = ${ $_[0] };
-    my $notice = ${ $_[2] };
+    my $sender = _normalize(${ $_[0] });
+    my $notice = _normalize(${ $_[2] });
 
     $self->{Pocoirc}->_status("Event S_notice", $irc, 'debug') if $self->{Trace};
     if (defined $irc->server_name() && $sender ne $irc->server_name()) {
@@ -113,8 +122,8 @@ sub S_identified {
 
 sub S_nick {
     my ($self, $irc) = splice @_, 0, 2;
-    my $user    = ${ $_[0] };
-    my $newnick = ${ $_[1] };
+    my $user    = _normalize(${ $_[0] });
+    my $newnick = _normalize(${ $_[1] });
     my $oldnick = (split /!/, $user)[0];
 
     $self->{Pocoirc}->_status("Event S_nick", $irc, 'debug') if $self->{Trace};
@@ -125,8 +134,8 @@ sub S_nick {
 
 sub S_join {
     my ($self, $irc) = splice @_, 0, 2;
-    my $user = ${ $_[0] };
-    my $chan = ${ $_[1] };
+    my $user = _normalize(${ $_[0] });
+    my $chan = _normalize(${ $_[1] });
     my $nick = (split /!/, $user)[0];
 
     $self->{Pocoirc}->_status("Event S_join", $irc, 'debug') if $self->{Trace};
@@ -137,25 +146,25 @@ sub S_join {
 
 sub S_part {
     my ($self, $irc) = splice @_, 0, 2;
-    my $user   = ${ $_[0] };
-    my $chan   = ${ $_[1] };
-    my $reason = ${ $_[2] };
+    my $user   = _normalize(${ $_[0] });
+    my $chan   = _normalize(${ $_[1] });
+    my $reason = ref $_[2] eq 'SCALAR' ? _normalize(${ $_[2] }) : '';
     my $nick   = (split /!/, $user)[0];
 
     $self->{Pocoirc}->_status("Event S_part", $irc, 'debug') if $self->{Trace};
     return PCI_EAT_NONE if $nick ne $irc->nick_name();
     my $msg = "Parted channel $chan";
-    $msg .= " ($reason)" if defined $reason;
+    $msg .= " ($reason)" if $reason ne '';
     $self->{Pocoirc}->_status($msg, $irc);
     return PCI_EAT_NONE;
 }
 
 sub S_kick {
     my ($self, $irc) = splice @_, 0, 2;
-    my $kicker = ${ $_[0] };
-    my $chan   = ${ $_[1] };
-    my $victim = ${ $_[2] };
-    my $reason = ${ $_[3] };
+    my $kicker = _normalize(${ $_[0] });
+    my $chan   = _normalize(${ $_[1] });
+    my $victim = _normalize(${ $_[2] });
+    my $reason = _normalize(${ $_[3] });
     $kicker    = (split /!/, $kicker)[0];
 
     $self->{Pocoirc}->_status("Event S_kick", $irc, 'debug') if $self->{Trace};
@@ -168,7 +177,7 @@ sub S_kick {
 
 sub S_error {
     my ($self, $irc) = splice @_, 0, 2;
-    my $error = ${ $_[0] };
+    my $error = _normalize(${ $_[0] });
     $self->{Pocoirc}->_status("Event S_error", $irc, 'debug') if $self->{Trace};
     $self->{Pocoirc}->_status("Error from IRC server: $error", $irc);
     return PCI_EAT_NONE;
@@ -176,8 +185,8 @@ sub S_error {
 
 sub S_quit {
     my ($self, $irc) = splice @_, 0, 2;
-    my $user   = ${ $_[0] };
-    my $reason = ${ $_[1] };
+    my $user   = _normalize(${ $_[0] });
+    my $reason = _normalize(${ $_[1] });
     my $nick   = (split /!/, $user)[0];
 
     $self->{Pocoirc}->_status("Event S_quit", $irc, 'debug') if $self->{Trace};
@@ -197,7 +206,7 @@ sub S_shutdown {
 
 sub S_socketerr {
     my ($self, $irc) = splice @_, 0, 2;
-    my $reason = ${ $_[0] };
+    my $reason = _normalize(${ $_[0] });
     $self->{Pocoirc}->_status("Event S_socketerr", $irc, 'debug') if $self->{Trace};
     $self->{Pocoirc}->_status("Failed to connect to server: $reason", $irc);
     return PCI_EAT_NONE;
@@ -205,7 +214,7 @@ sub S_socketerr {
 
 sub S_socks_failed {
     my ($self, $irc) = splice @_, 0, 2;
-    my $reason = ${ $_[0] };
+    my $reason = _normalize(${ $_[0] });
     $self->{Pocoirc}->_status("Event S_socks_failed", $irc, 'debug') if $self->{Trace};
     $self->{Pocoirc}->_status("Failed to connect to SOCKS server: $reason", $irc);
     return PCI_EAT_NONE;
@@ -221,9 +230,9 @@ sub S_socks_rejected {
 
 sub S_raw {
     my ($self, $irc) = splice @_, 0, 2;
-    my $raw = ${ $_[0] };
+    my $raw = _normalize(${ $_[0] });
     return PCI_EAT_NONE if !$self->{Verbose};
-    $self->{Pocoirc}->_status("->$raw", $irc);
+    $self->{Pocoirc}->_status("Raw: $raw", $irc, 'debug');
     return PCI_EAT_NONE;
 }
 

@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.23';
+  $App::Pocoirc::VERSION = '0.24';
 }
 
 use strict;
@@ -31,7 +31,7 @@ sub run {
     my ($self) = @_;
 
     if ($self->{list_plugins}) {
-        for my $plugin ($self->_available_plugins()) {
+        for my $plugin (sort $self->_available_plugins()) {
             $plugin =~ s/^POE::Component::IRC::Plugin:://;
             print $plugin, "\n";
         }

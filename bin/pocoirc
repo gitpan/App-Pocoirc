@@ -148,16 +148,15 @@ else {
 
     $config = {
         (map { defined $args{$_} ? ($_ => $args{$_}) : () } qw(lib log_file pid_file)),
-        networks => [
-            {
-                name => 'default',
+        networks => {
+            default => {
                 local_plugins => \@plugins,
                 %direct_args,
                 (map {
                     defined $args{$_} ? ($_ => $args{$_}) : ()
                 } qw(class server port password nick username ircname ipv6 ssl)),
             }
-        ],
+        },
     };
 }
 
@@ -226,7 +225,8 @@ constructor:
  -a 'AutoJoin{"ReJoinOnKick":0,"Channels":["#foo","#bar"]}'
  -a 'AutoJoin {"ReJoinOnKick": 0, "Channels": ["#foo", "#bar"]}'
 
- For documentation on the configuration file, do "perldoc App::Pocoirc"
+For documentation of the configuration file, do "perldoc
+L<App::Pocoirc|App::Pocoirc>".
 
 =head1 AUTHOR
 

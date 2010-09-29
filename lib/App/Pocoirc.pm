@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.24';
+  $App::Pocoirc::VERSION = '0.25';
 }
 
 use strict;
@@ -106,9 +106,7 @@ sub _setup {
         $self->_require_plugin($plug_spec);
     }
 
-    for my $opts (@{ $self->{cfg}{networks} }) {
-        die "Network name missing\n" if !defined $opts->{name};
-
+    while (my ($network, $opts) = each %{ $self->{cfg}{networks} }) {
         while (my ($opt, $value) = each %{ $self->{cfg} }) {
             next if $opt =~ /^(?:networks|global_plugins|local_plugins)$/;
             $opts->{$opt} = $value if !defined $opts->{$opt};
@@ -119,7 +117,7 @@ sub _setup {
         }
 
         if (!defined $opts->{server}) {
-            die "Server for network '$opts->{name}' not specified\n";
+            die "Server for network '$network' not specified\n";
         }
 
         $opts->{class} = 'POE::Component::IRC::State' if !defined $opts->{class};
@@ -138,13 +136,13 @@ sub _start {
     $kernel->sig(DIE => 'sig_die');
     $kernel->sig(INT => 'sig_int');
     $kernel->sig(TERM => 'sig_term');
-    $self->_status("Started (pid $$)");
+    $self->_status(undef, 'normal', "Started (pid $$)");
 
     # create the shared DNS resolver
     $self->{resolver} = POE::Component::Client::DNS->spawn();
 
     # construct global plugins
-    $self->_status("Constructing global plugins");
+    $self->_status(undef, 'normal', "Constructing global plugins");
     $self->{global_plugs} = $self->_create_plugins(delete $self->{cfg}{global_plugins});
 
     my $status_plugin = App::Pocoirc::Status->new(
@@ -154,15 +152,14 @@ sub _start {
     );
 
     # construct IRC components
-    for my $opts (@{ $self->{cfg}{networks} }) {
-        my $network = delete $opts->{name};
+    while (my ($network, $opts) = each %{ $self->{cfg}{networks} }) {
         my $class = delete $opts->{class};
 
         # construct network-specific plugins
-        $self->_status('Constructing local plugins', $network);
+        $self->_status($network, 'normal', 'Constructing local plugins');
         $self->{local_plugs}{$network} = $self->_create_plugins(delete $opts->{local_plugins});
 
-        $self->_status('Spawning IRC component', $network);
+        $self->_status($network, 'normal', "Spawning IRC component object ($class)");
         my $irc = $class->spawn(
             %$opts,
             Resolver => $self->{resolver},
@@ -172,7 +169,7 @@ sub _start {
 
     for my $entry (@{ $self->{ircs} }) {
         my ($network, $irc) = @$entry;
-        $self->_status('Registering plugins', $network);
+        $self->_status($network, 'normal', 'Registering plugins');
 
         my @plugins = (
             @{ $self->{global_plugs} },
@@ -182,18 +179,24 @@ sub _start {
         for my $plugin (@plugins) {
             my ($class, $object) = @$plugin;
             my $name = $class.$session->ID();
-            $irc->plugin_add($name, $object);
+            $irc->plugin_add($name, $object,
+                network => $network,
+                status  => sub { $self->_status("$network/$name", @_) },
+            );
         }
 
         # add our status plugin and bump it to the front of the pipeline
-        $irc->plugin_add('PocoircStatus'.$session->ID(), $status_plugin);
+        $irc->plugin_add('PocoircStatus'.$session->ID(), $status_plugin,
+            network => $network,
+            status  => sub { $self->_status($network, @_) },
+        );
         my $idx = $irc->pipeline->get_index($status_plugin);
         $irc->pipeline->bump_up($status_plugin, $idx);
     }
 
     for my $entry (@{ $self->{ircs} }) {
         my ($network, $irc) = @$entry;
-        $self->_status('Connecting to IRC', $network);
+        $self->_status($network, 'normal', 'Connecting to IRC');
         $irc->yield('connect');
     }
 
@@ -210,7 +213,7 @@ sub irc_433 {
     my $reason = irc_to_utf8($_[ARG2]->[1]);
     return if $irc->logged_in();
     my $nick = $irc->nick_name();
-    $self->_status("Unable to log in: $reason", $irc);
+    $self->_status($irc, 'normal', "Login attempt failed: $reason");
     return;
 }
 
@@ -219,24 +222,24 @@ sub irc_433 {
 sub irc_plugin_add {
     my ($self, $alias) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_status("Event S_plugin_add", $irc, 'debug') if $self->{trace};
-    $self->_status("Added plugin $alias", $irc);
+    $self->_status($irc, 'normal', "Event S_plugin_add") if $self->{trace};
+    $self->_status($irc, 'normal', "Added plugin $alias");
     return;
 }
 
 sub irc_plugin_del {
     my ($self, $alias) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_status("Event S_plugin_del", $irc, 'debug') if $self->{trace};
-    $self->_status("Deleted plugin $alias", $irc);
+    $self->_status($irc, 'debug', "Event S_plugin_del") if $self->{trace};
+    $self->_status($irc, 'normal', "Deleted plugin $alias");
     return;
 }
 
 sub irc_plugin_error {
     my ($self, $error) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_status("Event S_plugin_error", $irc, 'debug') if $self->{trace};
-    $self->_status($error, $irc, 'error');
+    $self->_status($irc, 'debug', "Event S_plugin_error") if $self->{trace};
+    $self->_status($irc, 'error', $error);
     return;
 }
 
@@ -252,7 +255,7 @@ sub irc_disconnected {
 }
 
 sub _status {
-    my ($self, $message, $context, $type) = @_;
+    my ($self, $context, $type, $message) = @_;
 
     my $stamp = strftime('%Y-%m-%d %H:%M:%S', localtime);
     my $irc; eval { $irc = $context->isa('POE::Component::IRC') };
@@ -358,7 +361,7 @@ sub sig_die {
         "    $ex->{error_str}",
     );
 
-    $self->_status($_, undef, 'error') for @errors;
+    $self->_status(undef, 'error', $_) for @errors;
 
     if (!$self->{shutdown}) {
         $self->_shutdown('Exiting due to an exception');
@@ -372,8 +375,8 @@ sub sig_int {
     my ($kernel, $self) = @_[KERNEL, OBJECT];
 
     if (!$self->{shutdown}) {
-        $self->_status('Exiting due to SIGINT');
-        $self->_shutdown('Exiting due to SIGINT');
+        $self->_status(undef, 'normal', 'Exiting due to SIGINT');
+        $self->_shutdown(undef, 'normal', 'Exiting due to SIGINT');
     }
     $kernel->sig_handled();
     return;
@@ -383,8 +386,8 @@ sub sig_term {
     my ($kernel, $self) = @_[KERNEL, OBJECT];
 
     if (!$self->{shutdown}) {
-        $self->_status('Exiting due to SIGTERM');
-        $self->_shutdown('Exiting due to SIGTERM');
+        $self->_status(undef, 'normal', 'Exiting due to SIGTERM');
+        $self->_shutdown(undef, 'normal', 'Exiting due to SIGTERM');
     }
 
     $kernel->sig_handled();
@@ -399,7 +402,8 @@ sub _shutdown {
 
         if ($obj->logged_in()) {
             if (!keys %{ $self->{waiting} }) {
-                $self->_status('Waiting up to 5 seconds for IRC server(s) to disconnect us');
+                $self->_status(undef, 'normal',
+                    'Waiting up to 5 seconds for IRC server(s) to disconnect us');
                 $poe_kernel->delay('quit_timeout', 5);
             }
             $self->{waiting}{$network} = $obj;

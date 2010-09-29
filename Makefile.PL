@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
- BEGIN { require 5.008; } 
+BEGIN { require 5.008; }
 
 use ExtUtils::MakeMaker 6.31;
 
@@ -29,12 +29,12 @@ my %WriteMakefileArgs = (
     'Module::Pluggable' => '0',
     'POE' => '1.292',
     'POE::Component::Client::DNS' => '0.99',
-    'POE::Component::IRC::State' => '6.45',
+    'POE::Component::IRC::State' => '6.46',
     'Proc::Daemon' => '0.02',
     'Term::ANSIColor' => '0',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.24',
+  'VERSION' => '0.25',
   'test' => {
     'TESTS' => 't/*.t'
   }

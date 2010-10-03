@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.27';
+  $App::Pocoirc::VERSION = '0.28';
 }
 
 use strict;
@@ -47,7 +47,10 @@ sub run {
 
     if ($self->{daemonize}) {
         require Proc::Daemon;
-        eval { Proc::Daemon::Init->() };
+        eval {
+            Proc::Daemon::Init->();
+            $poe_kernel->has_forked();
+        };
         chomp $@;
         die "Can't daemonize: $@\n" if $@;
     }

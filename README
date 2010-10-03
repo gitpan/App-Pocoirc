@@ -20,10 +20,10 @@ DESCRIPTION
         object)
 
 CONFIGURATION
-     nick: foobar1234
+     nick:     foobar1234
      username: foobar
      log_file: /my/log.file
-     lib: ['/my/modules']
+     lib:      '/my/modules'
 
      global_plugins:
        - [CTCP]
@@ -42,14 +42,16 @@ CONFIGURATION
 
     The configuration file is in YAML or JSON format. It consists of a hash
     containing "global_plugins", "local_plugins", "networks", "lib",
-    "log_file", and default parameters to POE::Component::IRC. Only
+    "log_file", "class", and default parameters to POE::Component::IRC. Only
     "networks" is required.
 
-    "lib" is an array of directories containing Perl modules (e.g. plugins).
-    Just like Perl's *-I*.
+    "lib" is either the name of a directory containing Perl modules (e.g.
+    plugins), or an array of such names. Kind of like Perl's *-I*.
 
     "log_file" is the path to a log file to which status messages will be
     written.
+
+    "class" is the IRC component class. Defaults to POE::Component::IRC.
 
   Networks
     The "networks" option should be hash of network hashes. The keys are the

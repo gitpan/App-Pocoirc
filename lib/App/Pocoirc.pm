@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.28';
+  $App::Pocoirc::VERSION = '0.29';
 }
 
 use strict;
@@ -100,9 +100,13 @@ sub _setup {
         Term::ANSIColor->import();
     }
 
-    if (defined $self->{cfg}{lib} && @{ $self->{cfg}{lib} }) {
-        my $lib = delete $self->{cfg}{lib};
-        unshift @INC, @$lib;
+    if (defined $self->{cfg}{lib}) {
+        if (ref $self->{cfg}{lib} eq 'ARRAY' && @{ $self->{cfg}{lib} }) {
+            unshift @INC, @{ delete $self->{cfg}{lib} };
+        }
+        else {
+            unshift @INC, delete $self->{cfg}{lib};
+        }
     }
 
     for my $plug_spec (@{ $self->{cfg}{global_plugins} || [] }) {
@@ -209,6 +213,29 @@ sub _start {
     return;
 }
 
+sub _event_debug {
+    my ($self, $irc, $event, $args) = @_;
+
+    my @output;
+    for my $arg (@$args) {
+        if (ref $arg eq 'ARRAY') {
+            push @output, '['. join(', ', @$arg) .']';
+        }
+        elsif (ref $arg eq 'HASH') {
+            push @output, '{'. join(', ', map { "$_ => \"$arg->{$_}\"" } keys %$arg) .'}';
+        }
+        elsif (defined $arg) {
+            push @output, "'$arg'";
+        }
+        else {
+            push @output, 'undef';
+        }
+    }
+
+    $self->_status($irc, 'debug', "Event, $event: ".join(', ', @output));
+    return;
+}
+
 # let's log this if it's preventing us from logging in
 sub irc_433 {
     my $self = $_[OBJECT];
@@ -225,7 +252,7 @@ sub irc_433 {
 sub irc_plugin_add {
     my ($self, $alias) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_status($irc, 'normal', "Event S_plugin_add") if $self->{trace};
+    $self->_event_debug($irc, 'S_plugin_add', [@_[ARG0..$#_]]) if $self->{trace};
     $self->_status($irc, 'normal', "Added plugin $alias");
     return;
 }
@@ -233,7 +260,7 @@ sub irc_plugin_add {
 sub irc_plugin_del {
     my ($self, $alias) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_status($irc, 'debug', "Event S_plugin_del") if $self->{trace};
+    $self->_event_debug($irc, 'S_plugin_del', [@_[ARG0..$#_]]) if $self->{trace};
     $self->_status($irc, 'normal', "Deleted plugin $alias");
     return;
 }
@@ -241,7 +268,7 @@ sub irc_plugin_del {
 sub irc_plugin_error {
     my ($self, $error) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_status($irc, 'debug', "Event S_plugin_error") if $self->{trace};
+    $self->_event_debug($irc, 'S_plugin_error', [@_[ARG0..$#_]]) if $self->{trace};
     $self->_status($irc, 'error', $error);
     return;
 }
@@ -462,10 +489,10 @@ to load locally (one object per component) or globally (single object)
 
 =head1 CONFIGURATION
 
- nick: foobar1234
+ nick:     foobar1234
  username: foobar
  log_file: /my/log.file
- lib: ['/my/modules']
+ lib:      '/my/modules'
 
  global_plugins:
    - [CTCP]
@@ -484,14 +511,17 @@ to load locally (one object per component) or globally (single object)
 
 The configuration file is in L<YAML|YAML> or L<JSON|JSON> format. It consists
 of a hash containing C<global_plugins>, C<local_plugins>, C<networks>, C<lib>,
-C<log_file>, and default parameters to
+C<log_file>, C<class>, and default parameters to
 L<POE::Component::IRC|POE::Component::IRC/spawn>. Only C<networks> is
 required.
 
-C<lib> is an array of directories containing Perl modules (e.g. plugins).
-Just like Perl's I<-I>.
+C<lib> is either the name of a directory containing Perl modules (e.g.
+plugins), or an array of such names. Kind of like Perl's I<-I>.
 
 C<log_file> is the path to a log file to which status messages will be written.
+
+C<class> is the IRC component class. Defaults to
+L<POE::Component::IRC|POE::Component::IRC>.
 
 =head2 Networks
 

@@ -1,5 +1,14 @@
 Revision history for App-Pocoirc
 
+0.30  Mon Oct 18 21:03:18 GMT 2010
+    - Only load Module::Pluggable when we need it (for --list-plugins)
+    - Only load Pod::Usage when we need it (with an invalid option)
+    - Delay the loading of App::Pocoirc until we need it
+    - Add the -F/--pid-file option to the usage message
+    - Use a comma instead of a colon to separate the channel name and
+      password with the --join option, since commas are not allowed in
+      channel names, whereas some networks allow colons.
+
 0.29  Sun Oct 3 19:53:28 GMT 2010
     - Document the 'class' config file option
     - Allow the 'lib' config option to be a string or an array of strings

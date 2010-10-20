@@ -1,5 +1,14 @@
 Revision history for App-Pocoirc
 
+0.31  Wed Oct 20 00:35:29 GMT 2010
+    - When using --trace, don't put quotes around stringified references
+      to objects
+    - Print a usage message when unrecognized non-options are passed
+    - Improve the output of --trace by recursively dumping hashes/arrays
+    - Call bsd_glob() on filenames before opening them, so we understand
+      paths like '~/log_file'
+    - Allow .yaml as an extension, not just .yml
+
 0.30  Mon Oct 18 21:03:18 GMT 2010
     - Only load Module::Pluggable when we need it (for --list-plugins)
     - Only load Pod::Usage when we need it (with an invalid option)

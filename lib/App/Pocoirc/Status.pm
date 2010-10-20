@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::Status::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::Status::VERSION = '0.30';
+  $App::Pocoirc::Status::VERSION = '0.31';
 }
 
 use strict;
@@ -11,6 +11,7 @@ use warnings FATAL => 'all';
 use Carp;
 use POE::Component::IRC::Common qw(irc_to_utf8 strip_color strip_formatting);
 use POE::Component::IRC::Plugin qw(PCI_EAT_NONE);
+use Scalar::Util qw(looks_like_number);
 
 sub new {
     my ($package) = shift;
@@ -64,26 +65,40 @@ sub _normalize {
     return $line;
 }
 
+sub _dump {
+    my ($arg) = @_;
+
+    if (ref $arg eq 'ARRAY') {
+        my @elems;
+        for my $elem (@$arg) {
+            push @elems, _dump($elem);
+        }
+        return '['. join(', ', @elems) .']';
+    }
+    elsif (ref $arg eq 'HASH') {
+        my @pairs;
+        for my $key (keys %$arg) {
+            push @pairs, [$key, _dump($arg->{$key})];
+        }
+        return '{'. join(', ', map { "$_->[0] => $_->[1]" } @pairs) .'}';
+    }
+    elsif (ref $arg) {
+        return $arg;
+    }
+    elsif (defined $arg) {
+        return looks_like_number($arg) ? $arg : "'$arg'";
+    }
+    else {
+        return 'undef';
+    }
+}
+
 sub _event_debug {
     my ($self, $irc, $event, $args) = @_;
-
     pop @$args;
-    my @args = map { $$_ } @$args;
     my @output;
-
-    for my $arg (@args) {
-        if (ref $arg eq 'ARRAY') {
-            push @output, '['. join(', ', map { "'$_'" } @$arg) .']';
-        }
-        elsif (ref $arg eq 'HASH') {
-            push @output, '{'. join(', ', map { "$_ => '$arg->{$_}'" } keys %$arg) .'}';
-        }
-        elsif (defined $arg) {
-            push @output, "'$arg'";
-        }
-        else {
-            push @output, 'undef';
-        }
+    for my $i (0..$#{ $args }) {
+       push @output, "ARG$i: " . _dump(${ $args->[$i] });
     }
 
     $self->{status}{$irc}->('debug', "Event $event: ".join(', ', @output));

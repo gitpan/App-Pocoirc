@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.30';
+  $App::Pocoirc::VERSION = '0.31';
 }
 
 use strict;
@@ -14,11 +14,13 @@ sub POE::Kernel::USE_SIGCHLD () { return 1 }
 
 use App::Pocoirc::Status;
 use Fcntl qw(O_CREAT O_EXCL O_WRONLY);
+use File::Glob ':glob';
 use IO::Handle;
 use POE;
 use POE::Component::IRC::Common qw(irc_to_utf8);
 use POE::Component::Client::DNS;
 use POSIX 'strftime';
+use Scalar::Util 'looks_like_number';
 
 sub new {
     my ($package, %args) = @_;
@@ -59,8 +61,8 @@ sub run {
     }
 
     if (defined $self->{cfg}{pid_file}) {
-        my $file = $self->{cfg}{pid_file};
-        sysopen my $fh, $file, O_CREAT|O_EXCL|O_WRONLY
+        $self->{pid_file} = bsd_glob(delete $self->{cfg}{pid_file});
+        sysopen my $fh, $self->{pid_file}, O_CREAT|O_EXCL|O_WRONLY
             or die "Can't create pid file or it already exists. Pocoirc already running?\n";
         print $fh "$$\n";
         close $fh;
@@ -84,7 +86,7 @@ sub run {
     );
 
     $poe_kernel->run();
-    unlink $self->{cfg}{pid_file} if defined $self->{cfg}{pid_file};
+    unlink $self->{pid_file} if defined $self->{pid_file};
     return;
 }
 
@@ -92,7 +94,8 @@ sub run {
 sub _setup {
     my ($self) = @_;
 
-    if (my $log = delete $self->{cfg}{log_file}) {
+    if (defined $self->{cfg}{log_file}) {
+        my $log = bsd_glob(delete $self->{cfg}{log_file});
         open my $fh, '>>', $log or die "Can't open $log: $!\n";
         close $fh;
         $self->{log_file} = $log;
@@ -216,25 +219,41 @@ sub _start {
     return;
 }
 
+sub _dump {
+    my ($arg) = @_;
+
+    if (ref $arg eq 'ARRAY') {
+        my @elems;
+        for my $elem (@$arg) {
+            push @elems, _dump($elem);
+        }
+        return '['. join(', ', @elems) .']';
+    }
+    elsif (ref $arg eq 'HASH') {
+        my @pairs;
+        for my $key (keys %$arg) {
+            push @pairs, [$key, _dump($arg->{$key})];
+        }
+        return '{'. join(', ', map { "$_->[0] => $_->[1]" } @pairs) .'}';
+    }
+    elsif (ref $arg) {
+        return $arg;
+    }
+    elsif (defined $arg) {
+        return looks_like_number($arg) ? $arg : "'$arg'";
+    }
+    else {
+        return 'undef';
+    }
+}
+
 sub _event_debug {
     my ($self, $irc, $event, $args) = @_;
 
     my @output;
-    for my $arg (@$args) {
-        if (ref $arg eq 'ARRAY') {
-            push @output, '['. join(', ', @$arg) .']';
-        }
-        elsif (ref $arg eq 'HASH') {
-            push @output, '{'. join(', ', map { "$_ => \"$arg->{$_}\"" } keys %$arg) .'}';
-        }
-        elsif (defined $arg) {
-            push @output, "'$arg'";
-        }
-        else {
-            push @output, 'undef';
-        }
+    for my $i (0..$#{ $args }) {
+        push @output, "ARG$i: " . _dump($args->[$i]);
     }
-
     $self->_status($irc, 'debug', "Event, $event: ".join(', ', @output));
     return;
 }

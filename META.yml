@@ -25,7 +25,7 @@ requires:
   Module::Pluggable: 0
   POE: 1.292
   POE::Component::Client::DNS: 0.99
-  POE::Component::IRC::State: 6.48
+  POE::Component::IRC::State: 6.50
   Proc::Daemon: 0.02
   Term::ANSIColor: 0
   YAML::XS: 0
@@ -35,5 +35,5 @@ resources:
   homepage: http://search.cpan.org/dist/App-Pocoirc/
   license: http://dev.perl.org/licenses/
   repository: git://github.com/hinrik/app-pocoirc.git
-version: 0.32
+version: 0.33
 x_authority: cpan:HINRIK

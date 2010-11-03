@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.32';
+  $App::Pocoirc::VERSION = '0.33';
 }
 
 use strict;
@@ -83,11 +83,9 @@ sub run {
                 sig_die
                 sig_int
                 sig_term
-                quit_timeout
                 irc_plugin_add
                 irc_plugin_del
                 irc_plugin_error
-                irc_disconnected
                 irc_433
             )],
         ],
@@ -266,7 +264,7 @@ sub _event_debug {
     for my $i (0..$#{ $args }) {
         push @output, "ARG$i: " . _dump($args->[$i]);
     }
-    $self->_status($irc, 'debug', "Event, $event: ".join(', ', @output));
+    $self->_status($irc, 'debug', "$event: ".join(', ', @output));
     return;
 }
 
@@ -307,17 +305,6 @@ sub irc_plugin_error {
     return;
 }
 
-sub irc_disconnected {
-    my ($kernel, $self, $server) = @_[KERNEL, OBJECT, ARG0];
-    my $irc = $_[SENDER]->get_heap();
-
-    $irc->yield('shutdown') if $self->{shutdown};
-    my $network = $self->_irc_to_network($irc);
-    delete $self->{waiting}{$network};
-    $kernel->delay('quit_timeout') if !keys %{ $self->{waiting} };
-    return;
-}
-
 sub _status {
     my ($self, $context, $type, $message) = @_;
 
@@ -328,9 +315,6 @@ sub _status {
 
     if (defined $type && $type eq 'error') {
         $message = "!!! $message";
-    }
-    elsif (defined $type && $type eq 'debug') {
-        $message = ">>> $message";
     }
 
     my $log_line = "$stamp$context$message";
@@ -459,35 +443,21 @@ sub sig_term {
 sub _shutdown {
     my ($self, $reason) = @_;
 
+    my $logged_in;
     for my $irc (@{ $self->{ircs} }) {
         my ($network, $obj) = @$irc;
 
-        if ($obj->logged_in()) {
-            if (!keys %{ $self->{waiting} }) {
-                $self->_status(undef, 'normal',
-                    'Waiting up to 5 seconds for IRC server(s) to disconnect us');
-                $poe_kernel->delay('quit_timeout', 5);
-            }
-            $self->{waiting}{$network} = $obj;
-            $obj->yield(quit => $reason);
+        if (!$logged_in && $obj->logged_in()) {
+            $logged_in = 1;
+            $self->_status(undef, 'normal',
+                'Waiting up to 5 seconds for IRC server(s) to disconnect us');
         }
-        elsif ($obj->connected()) {
-            $obj->disconnect();
-        }
-        else {
-            $obj->yield('shutdown');
-        }
+        $obj->yield('shutdown', $reason, 5);
     }
 
     $self->{resolver}->shutdown();
     $self->{shutdown} = 1;
 
-    return;
-}
-
-sub quit_timeout {
-    my ($self) = $_[OBJECT];
-    $_->yield('shutdown') for values %{ $self->{waiting} };
     return;
 }
 
@@ -516,6 +486,9 @@ L<POE::Component::IRC|POE::Component::IRC>. The main features are:
 
 =item * Supports multiple IRC components and lets you specify which plugins
 to load locally (one object per component) or globally (single object)
+
+It can be used to launch IRC bots or proxies, loaded with plugins of your
+choice. It is also very useful for testing and debugging IRC servers.
 
 =back
 
@@ -621,7 +594,7 @@ Here is some example output from the program:
  2010-09-26 02:50:15 Waiting up to 5 seconds for IRC server(s) to disconnect us
  2010-09-26 02:50:15 [magnet]    Error from IRC server: Closing Link: 212-30-192-157.static.simnet.is ()
  2010-09-26 02:50:15 [magnet]    Disconnected from server 217.168.153.160
- 2010-09-26 02:50:15 [magnet]    Shutting down
+ 2010-09-26 02:50:15 [magnet]    IRC component shut down
  2010-09-26 02:50:15 [freenode]  Quit from IRC (Client Quit)
  2010-09-26 02:50:15 [magnet]    Deleted plugin DCC6
  2010-09-26 02:50:15 [magnet]    Deleted plugin ISupport6
@@ -630,7 +603,7 @@ Here is some example output from the program:
  2010-09-26 02:50:15 [magnet]    Deleted plugin PocoircStatus2
  2010-09-26 02:50:15 [freenode]  Error from IRC server: Closing Link: 212-30-192-157.static.simnet.is (Client Quit)
  2010-09-26 02:50:15 [freenode]  Disconnected from server 130.237.188.200
- 2010-09-26 02:50:15 [freenode]  Shutting down
+ 2010-09-26 02:50:15 [freenode]  IRC component shut down
  2010-09-26 02:50:15 [freenode]  Deleted plugin DCC3
  2010-09-26 02:50:15 [freenode]  Deleted plugin AutoJoin2
  2010-09-26 02:50:15 [freenode]  Deleted plugin CTCP2

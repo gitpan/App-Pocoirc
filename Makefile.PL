@@ -29,12 +29,12 @@ my %WriteMakefileArgs = (
     'Module::Pluggable' => '0',
     'POE' => '1.292',
     'POE::Component::Client::DNS' => '0.99',
-    'POE::Component::IRC::State' => '6.48',
+    'POE::Component::IRC::State' => '6.50',
     'Proc::Daemon' => '0.02',
     'Term::ANSIColor' => '0',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.32',
+  'VERSION' => '0.33',
   'test' => {
     'TESTS' => 't/*.t'
   }

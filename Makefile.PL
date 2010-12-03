@@ -25,6 +25,7 @@ my %WriteMakefileArgs = (
   'LICENSE' => 'perl',
   'NAME' => 'App::Pocoirc',
   'PREREQ_PM' => {
+    'Class::Load' => '0.06',
     'JSON::XS' => '0',
     'Module::Pluggable' => '0',
     'POE' => '1.292',
@@ -34,7 +35,7 @@ my %WriteMakefileArgs = (
     'Term::ANSIColor' => '0',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.33',
+  'VERSION' => '0.34',
   'test' => {
     'TESTS' => 't/*.t'
   }

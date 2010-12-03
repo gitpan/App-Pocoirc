@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.33';
+  $App::Pocoirc::VERSION = '0.34';
 }
 
 use strict;
@@ -13,6 +13,7 @@ use warnings FATAL => 'all';
 sub POE::Kernel::USE_SIGCHLD () { return 1 }
 
 use App::Pocoirc::Status;
+use Class::Load qw(try_load_class);
 use Cwd qw(abs_path);
 use Fcntl qw(O_CREAT O_EXCL O_WRONLY);
 use File::Glob ':glob';
@@ -118,15 +119,15 @@ sub _setup {
 
     if (defined $self->{cfg}{lib}) {
         if (ref $self->{cfg}{lib} eq 'ARRAY' && @{ $self->{cfg}{lib} }) {
-            unshift @INC, @{ delete $self->{cfg}{lib} };
+            unshift @INC, map { abs_path(bsd_glob($_)) } @{ delete $self->{cfg}{lib} };
         }
         else {
-            unshift @INC, delete $self->{cfg}{lib};
+            unshift @INC, abs_path(bsd_glob(delete $self->{cfg}{lib}));
         }
     }
 
     for my $plug_spec (@{ $self->{cfg}{global_plugins} || [] }) {
-        $self->_require_plugin($plug_spec);
+        $self->_load_plugin($plug_spec);
     }
 
     while (my ($network, $opts) = each %{ $self->{cfg}{networks} }) {
@@ -136,7 +137,7 @@ sub _setup {
         }
 
         for my $plug_spec (@{ $opts->{local_plugins} || [] }) {
-            $self->_require_plugin($plug_spec);
+            $self->_load_plugin($plug_spec);
         }
 
         if (!defined $opts->{server}) {
@@ -144,9 +145,9 @@ sub _setup {
         }
 
         $opts->{class} = 'POE::Component::IRC::State' if !defined $opts->{class};
-        eval "require $opts->{class}";
-        chomp $@;
-        die "Can't load class $opts->{class}: $@\n" if $@;
+        my ($success, $error) = try_load_class($opts->{class});
+        chomp $error if defined $error;
+        die "Can't load class $opts->{class}: $error\n" if !$success;
     }
 
     return;
@@ -357,8 +358,8 @@ sub _irc_to_network {
     return;
 }
 
-# find out the canonical class name for the plugin and require() it
-sub _require_plugin {
+# find out the canonical class name for the plugin and load it
+sub _load_plugin {
     my ($self, $plug_spec) = @_;
 
     return if defined $plug_spec->[2];
@@ -367,15 +368,15 @@ sub _require_plugin {
 
     my $fullclass = "POE::Component::IRC::Plugin::$class";
     my $canonclass = $fullclass;
-    my $error;
-    eval "require $fullclass";
-    if ($@) {
-        $error .= $@;
-        eval "require $class";
-        if ($@) {
-            chomp $@;
-            $error .= $@;
-            die "Failed to load plugin $class or $fullclass: $error\n";
+    my ($success, $error, $errors);
+    ($success, $error) = try_load_class($fullclass);
+    if (!$success) {
+        $errors .= $error;
+        ($success, $error) = try_load_class($class);
+        if (!$success) {
+            chomp $error if defined $error;
+            $errors .= $error;
+            die "Failed to load plugin $class or $fullclass: $errors\n";
         }
         $canonclass = $class;
     }

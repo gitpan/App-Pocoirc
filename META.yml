@@ -21,6 +21,7 @@ no_index:
     - utils
     - example
 requires:
+  Class::Load: 0.06
   JSON::XS: 0
   Module::Pluggable: 0
   POE: 1.292
@@ -35,5 +36,5 @@ resources:
   homepage: http://search.cpan.org/dist/App-Pocoirc/
   license: http://dev.perl.org/licenses/
   repository: git://github.com/hinrik/app-pocoirc.git
-version: 0.33
+version: 0.34
 x_authority: cpan:HINRIK

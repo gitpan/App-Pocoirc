@@ -1,5 +1,9 @@
 Revision history for App-Pocoirc
 
+0.35  Sat Apr 2 00:22:39 GMT 2011
+    - Allow using a short name (e.g. Qnet::State) with --class
+    - Fix error in documentation about the default component class
+
 0.34  Fri Dec 3 06:51:23 GMT 2010
     - Convert library directories (--lib) into absolute paths, so they'll still
       work after daemonization (which implies chdir()ing)

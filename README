@@ -55,7 +55,8 @@ CONFIGURATION
     "log_file" is the path to a log file to which status messages will be
     written.
 
-    "class" is the IRC component class. Defaults to POE::Component::IRC.
+    "class" is the IRC component class. Defaults to
+    POE::Component::IRC::State.
 
   Networks
     The "networks" option should be hash of network hashes. The keys are the

@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::Status::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::Status::VERSION = '0.37';
+  $App::Pocoirc::Status::VERSION = '0.38';
 }
 
 use strict;
@@ -22,35 +22,9 @@ sub new {
 sub PCI_register {
     my ($self, $irc, %args) = @_;
 
-    $self->{status}{$irc} = $args{status};
     $irc->raw_events(1) if $self->{Verbose};
-
-    if ($self->{Trace}) {
-        $irc->plugin_register($self, 'SERVER', 'all');
-        $irc->plugin_register($self, 'USER', 'all');
-    }
-    else {
-        $irc->plugin_register($self, 'SERVER', qw(
-            connected
-            disconnected
-            snotice
-            notice
-            001
-            identified
-            quit
-            nick
-            join
-            part
-            kick
-            error
-            socketerr
-            shutdown
-            socks_failed
-            socks_rejected
-            raw
-            raw_out
-        ));
-    }
+    $irc->plugin_register($self, 'SERVER', 'all');
+    $irc->plugin_register($self, 'USER', 'all');
     return 1;
 }
 
@@ -108,13 +82,14 @@ sub _dump {
 
 sub _event_debug {
     my ($self, $irc, $event, $args) = @_;
+
     pop @$args;
     my @output;
     for my $i (0..$#{ $args }) {
        push @output, "ARG$i: " . _dump(${ $args->[$i] });
     }
 
-    $self->{status}{$irc}->('debug', "$event: ".join(', ', @output));
+    $irc->send_event_next('irc_plugin_status', $self, 'debug', "$event: ".join(', ', @output));
     return;
 }
 
@@ -122,7 +97,7 @@ sub S_connected {
     my ($self, $irc) = splice @_, 0, 2;
     my $address = ${ $_[0] };
     $self->_event_debug($irc, 'S_connected', \@_) if $self->{Trace};
-    $self->{status}{$irc}->('normal', "Connected to server $address");
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Connected to server $address");
     return PCI_EAT_NONE;
 }
 
@@ -130,7 +105,7 @@ sub S_disconnected {
     my ($self, $irc) = splice @_, 0, 2;
     my $server = ${ $_[0] };
     $self->_event_debug($irc, 'S_disconnected', \@_) if $self->{Trace};
-    $self->{status}{$irc}->('normal', "Disconnected from server $server");
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Disconnected from server $server");
     return PCI_EAT_NONE;
 }
 
@@ -138,7 +113,7 @@ sub S_snotice {
     my ($self, $irc) = splice @_, 0, 2;
     my $notice = _normalize(${ $_[0] });
     $self->_event_debug($irc, 'S_snotice', \@_) if $self->{Trace};
-    $self->{status}{$irc}->('normal', "Server notice: $notice");
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Server notice: $notice");
     return PCI_EAT_NONE;
 }
 
@@ -152,7 +127,7 @@ sub S_notice {
         return PCI_EAT_NONE;
     }
 
-    $self->{status}{$irc}->('normal', "Server notice: $notice");
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Server notice: $notice");
     return PCI_EAT_NONE;
 }
 
@@ -162,15 +137,27 @@ sub S_001 {
     my $nick = $irc->nick_name();
     my $event = 'S_001 ('.numeric_to_name('001').')';
     $self->_event_debug($irc, 'event', \@_) if $self->{Trace};
-    $self->{status}{$irc}->('normal', "Logged in to server $server with nick $nick");
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Logged in to server $server with nick $nick");
     return PCI_EAT_NONE;
 }
 
 sub S_identified {
     my ($self, $irc) = splice @_, 0, 2;
     my $nick = $irc->nick_name();
-    $self->_event_debug($irc, 'S_identified', \@_)if $self->{Trace};
-    $self->{status}{$irc}->('normal', "Identified with NickServ as $nick");
+    $self->_event_debug($irc, 'S_identified', \@_) if $self->{Trace};
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Identified with NickServ as $nick");
+    return PCI_EAT_NONE;
+}
+
+sub S_isupport {
+    my ($self, $irc) = splice @_, 0, 2;
+    my $isupport = ${ $_[0] };
+    my $network  = $isupport->isupport('NETWORK');
+    $self->_event_debug($irc, 'S_isupport', \@_) if $self->{Trace};
+
+    if (!defined $self->{Dynamic} && defined $network && length $network) {
+        $irc->send_event_next('irc_network', $network);
+    }
     return PCI_EAT_NONE;
 }
 
@@ -182,7 +169,7 @@ sub S_nick {
 
     $self->_event_debug($irc, 'S_nick', \@_) if $self->{Trace};
     return PCI_EAT_NONE if $newnick ne $irc->nick_name();
-    $self->{status}{$irc}->('normal', "Nickname changed from $oldnick to $newnick");
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Nickname changed from $oldnick to $newnick");
     return PCI_EAT_NONE;
 }
 
@@ -194,7 +181,7 @@ sub S_join {
 
     $self->_event_debug($irc, 'S_join', \@_) if $self->{Trace};
     return PCI_EAT_NONE if $nick ne $irc->nick_name();
-    $self->{status}{$irc}->('normal', "Joined channel $chan");
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Joined channel $chan");
     return PCI_EAT_NONE;
 }
 
@@ -209,7 +196,7 @@ sub S_part {
     return PCI_EAT_NONE if $nick ne $irc->nick_name();
     my $msg = "Parted channel $chan";
     $msg .= " ($reason)" if $reason ne '';
-    $self->{status}{$irc}->('normal', $msg);
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', $msg);
     return PCI_EAT_NONE;
 }
 
@@ -225,7 +212,7 @@ sub S_kick {
     return PCI_EAT_NONE if $victim ne $irc->nick_name();
     my $msg = "Kicked from $chan by $kicker";
     $msg .= " ($reason)" if length $reason;
-    $self->{status}{$irc}->('normal', $msg);
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', $msg);
     return PCI_EAT_NONE;
 }
 
@@ -233,7 +220,7 @@ sub S_error {
     my ($self, $irc) = splice @_, 0, 2;
     my $error = _normalize(${ $_[0] });
     $self->_event_debug($irc, 'S_error', \@_) if $self->{Trace};
-    $self->{status}{$irc}->('normal', "Error from IRC server: $error");
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Error from IRC server: $error");
     return PCI_EAT_NONE;
 }
 
@@ -247,7 +234,7 @@ sub S_quit {
     return PCI_EAT_NONE if $nick ne $irc->nick_name();
     my $msg = 'Quit from IRC';
     $msg .= " ($reason)" if length $reason;
-    $self->{status}{$irc}->('normal', $msg);
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', $msg);
     return PCI_EAT_NONE;
 }
 
@@ -255,7 +242,7 @@ sub S_socketerr {
     my ($self, $irc) = splice @_, 0, 2;
     my $reason = _normalize(${ $_[0] });
     $self->_event_debug($irc, 'S_socketerr', \@_) if $self->{Trace};
-    $self->{status}{$irc}->('normal', "Failed to connect to server: $reason");
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Failed to connect to server: $reason");
     return PCI_EAT_NONE;
 }
 
@@ -263,7 +250,7 @@ sub S_socks_failed {
     my ($self, $irc) = splice @_, 0, 2;
     my $reason = _normalize(${ $_[0] });
     $self->_event_debug($irc, 'S_socks_failed', \@_) if $self->{Trace};
-    $self->{status}{$irc}->('normal', "Failed to connect to SOCKS server: $reason");
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Failed to connect to SOCKS server: $reason");
     return PCI_EAT_NONE;
 }
 
@@ -271,7 +258,7 @@ sub S_socks_rejected {
     my ($self, $irc) = splice @_, 0, 2;
     my $code = ${ $_[0] };
     $self->_event_debug($irc, 'S_socks_rejected', \@_) if $self->{Trace};
-    $self->{status}{$irc}->('normal', "Connection rejected by SOCKS server (code $code)");
+    $irc->send_event_next('irc_plugin_status', $self, 'normal', "Connection rejected by SOCKS server (code $code)");
     return PCI_EAT_NONE;
 }
 
@@ -279,7 +266,7 @@ sub S_raw {
     my ($self, $irc) = splice @_, 0, 2;
     my $raw = _normalize(${ $_[0] });
     return PCI_EAT_NONE if !$self->{Verbose};
-    $self->{status}{$irc}->('debug', "<<< $raw");
+    $irc->send_event_next('irc_plugin_status', $self, 'debug', "<<< $raw");
     return PCI_EAT_NONE;
 }
 
@@ -289,7 +276,7 @@ sub S_raw_out {
     $raw = strip_color($raw);
     $raw = strip_formatting($raw);
     return PCI_EAT_NONE if !$self->{Verbose};
-    $self->{status}{$irc}->('debug', ">>> $raw");
+    $irc->send_event_next('irc_plugin_status', $self, 'debug', ">>> $raw");
     return PCI_EAT_NONE;
 }
 

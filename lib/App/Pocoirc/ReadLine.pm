@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::ReadLine::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::ReadLine::VERSION = '0.37';
+  $App::Pocoirc::ReadLine::VERSION = '0.38';
 }
 
 use strict;
@@ -44,7 +44,7 @@ sub PCI_register {
     }
 
     $self->{ircs}{$args{network}} = $irc;
-    $irc->plugin_register($self, 'SERVER', 'isupport');
+    $irc->plugin_register($self, 'SERVER', 'network');
     return 1;
 }
 
@@ -205,18 +205,15 @@ sub _print_networks {
     return;
 }
 
-sub S_isupport {
+sub S_network {
     my ($self, $irc) = splice @_, 0, 2;
-    my $isupport = ${ $_[0] };
-    my $network = $isupport->isupport('NETWORK');
+    my $network = ${ $_[0] };
 
-    if (!defined $self->{cfg_file} && defined $network && length $network) {
-        $self->{console}->get("$network> ");
-        for my $net (keys %{ $self->{ircs} }) {
-            if ($self->{ircs}{$net} == $irc) {
-                delete $self->{ircs}{$net};
-                $self->{ircs}{$network} = $irc;
-            }
+    $self->{console}->get("$network> ");
+    for my $net (keys %{ $self->{ircs} }) {
+        if ($self->{ircs}{$net} == $irc) {
+            delete $self->{ircs}{$net};
+            $self->{ircs}{$network} = $irc;
         }
     }
     return PCI_EAT_NONE;

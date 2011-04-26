@@ -1,5 +1,10 @@
 Revision history for App-Pocoirc
 
+0.38  Tue Apr 26 22:03:37 GMT 2011
+    - Replace status callbacks with irc_plugin_status events
+    - Send an irc_network event when the network name changes
+    - Enabling tracing in --interactive after startup wasn't working
+
 0.37  Mon Apr 25 23:59:48 GMT 2011
     - Preserve symlinks in all supplied filenames
     - When using --trace, print the name (e.g. ERR_NICKNAMEINUSE) of every

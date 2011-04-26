@@ -14,6 +14,7 @@ my $success = GetOptions(
     'd|daemonize'    => \$args{daemonize},
     'b|no-color'     => \$args{no_color},
     'L|list-plugins' => \$args{list_plugins},
+    'i|interactive'  => \$args{interactive},
 
     # global config options
     'I|lib=s@'       => \$args{lib},
@@ -29,7 +30,7 @@ my $success = GetOptions(
     'P|password=s'   => \$args{password},
     'n|nick=s'       => \$args{nick},
     'u|username=s'   => \$args{username},
-    'i|ircname=s'    => \$args{ircname},
+    'r|realname=s'   => \$args{ircname},
     'j|join=s@'      => \$args{chan_specs},
     'N|nspassword=s' => \$args{nspassword},
     'a|plugin=s@'    => \$args{plugin_specs},
@@ -169,9 +170,10 @@ else {
 require App::Pocoirc;
 App::Pocoirc->new(
     cfg       => $config,
+    cfg_file  => $args{cfg_file},
     (map {
         defined $args{$_} ? ($_ => $args{$_}) : ()
-    } qw(check_cfg daemonize verbose trace no_color list_plugins))
+    } qw(check_cfg daemonize verbose trace no_color list_plugins interactive))
 )->run();
 
 =encoding utf8
@@ -192,6 +194,7 @@ B<pocoirc> <options>
    -t, --trace                  Show all IRC events
    -L, --list-plugins           List available plugins
    -b, --no-color               Don't use terminal colors
+   -i, --interactive            Interactive mode (type 'help' for help)
    -V, --version                Print version
    -h, --help                   Print this usage message
 
@@ -201,7 +204,7 @@ B<pocoirc> <options>
    -P FOO, --password FOO       Use server password FOO
    -n FOO, --nickname FOO       Use nickname FOO
    -u FOO, --username FOO       Use username FOO
-   -i FOO, --ircname FOO        Use ircname FOO
+   -r FOO, --realname FOO       Use realname FOO
    -j FOO, --join FOO           Join channel FOO (see below)
    -N FOO, --nspassword FOO     NickServ password (see below)
    -a FOO, --plugin FOO         Add plugin FOO (see below)
@@ -218,15 +221,16 @@ file already exists.
 
 Arguments to the B<-j> option can be a channel name (e.g. '#foo') or a channel
 name and a password separated by a comma (e.g. '#foo,bar'). If you specify
-any channels, an AutoJoin plugin with these parameters will be added to
-your IRC component.
+any channels, an L<AutoJoin|POE::Component::IRC::Plugin::AutoJoin> plugin with
+these parameters will be added to your IRC component.
 
-When you use the B<-N> option, a NickServID plugin will be added for you with
-the supplied password.
+When you use the B<-N> option, a
+L<NickServID|POE::Component::IRC::Plugin::NickServID> plugin will be added
+for you with the supplied password.
 
 Arguments to the B<-a> option should consist of the class name (the
 "POE::Component::IRC::Plugin::" prefix can be omitted if it applies), zero
-or more whitespace, and possibly a JSON hash of arguments to the plugin's
+or more whitespace, and optionally a JSON hash of arguments to the plugin's
 constructor:
 
  -a AutoJoin

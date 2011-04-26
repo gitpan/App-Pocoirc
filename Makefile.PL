@@ -26,16 +26,18 @@ my %WriteMakefileArgs = (
   'NAME' => 'App::Pocoirc',
   'PREREQ_PM' => {
     'Class::Load' => '0.06',
+    'Data::Dump' => '0',
+    'IRC::Utils' => '0.06',
     'JSON::XS' => '0',
     'Module::Pluggable' => '0',
-    'POE' => '1.292',
+    'POE' => '1.310',
     'POE::Component::Client::DNS' => '0.99',
-    'POE::Component::IRC::State' => '6.50',
+    'POE::Component::IRC::State' => '6.61',
     'Proc::Daemon' => '0.02',
     'Term::ANSIColor' => '0',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.36',
+  'VERSION' => '0.37',
   'test' => {
     'TESTS' => 't/*.t'
   }

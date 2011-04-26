@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.36';
+  $App::Pocoirc::VERSION = '0.37';
 }
 
 use strict;
@@ -14,12 +14,12 @@ sub POE::Kernel::USE_SIGCHLD () { return 1 }
 
 use App::Pocoirc::Status;
 use Class::Load qw(try_load_class);
-use Cwd qw(abs_path);
 use Fcntl qw(O_CREAT O_EXCL O_WRONLY);
 use File::Glob ':glob';
+use File::Spec::Functions 'rel2abs';
 use IO::Handle;
+use IRC::Utils qw(decode_irc);
 use POE;
-use POE::Component::IRC::Common qw(irc_to_utf8);
 use POE::Component::Client::DNS;
 use POSIX 'strftime';
 use Scalar::Util 'looks_like_number';
@@ -88,6 +88,8 @@ sub run {
                 irc_plugin_del
                 irc_plugin_error
                 irc_433
+                irc_isupport
+                irc_shutdown
             )],
         ],
     );
@@ -97,16 +99,15 @@ sub run {
     return;
 }
 
-# compilation and config validation
 sub _setup {
     my ($self) = @_;
 
     if (defined $self->{cfg}{pid_file}) {
-        $self->{pid_file} = abs_path(bsd_glob(delete $self->{cfg}{pid_file}));
+        $self->{pid_file} = rel2abs(bsd_glob(delete $self->{cfg}{pid_file}));
     }
 
     if (defined $self->{cfg}{log_file}) {
-        my $log = abs_path(bsd_glob(delete $self->{cfg}{log_file}));
+        my $log = rel2abs(bsd_glob(delete $self->{cfg}{log_file}));
         open my $fh, '>>', $log or die "Can't open $log: $!\n";
         close $fh;
         $self->{log_file} = $log;
@@ -119,12 +120,19 @@ sub _setup {
 
     if (defined $self->{cfg}{lib}) {
         if (ref $self->{cfg}{lib} eq 'ARRAY' && @{ $self->{cfg}{lib} }) {
-            unshift @INC, map { abs_path(bsd_glob($_)) } @{ delete $self->{cfg}{lib} };
+            unshift @INC, map { rel2abs(bsd_glob($_)) } @{ delete $self->{cfg}{lib} };
         }
         else {
-            unshift @INC, abs_path(bsd_glob(delete $self->{cfg}{lib}));
+            unshift @INC, rel2abs(bsd_glob(delete $self->{cfg}{lib}));
         }
     }
+
+    $self->_load_classes();
+    return;
+}
+
+sub _load_classes {
+    my ($self) = @_;
 
     for my $plug_spec (@{ $self->{cfg}{global_plugins} || [] }) {
         $self->_load_plugin($plug_spec);
@@ -168,28 +176,62 @@ sub _start {
     $kernel->sig(DIE => 'sig_die');
     $kernel->sig(INT => 'sig_int');
     $kernel->sig(TERM => 'sig_term');
+
     $self->_status(undef, 'normal', "Started (pid $$)");
+    my ($own, $global, $local) = $self->_construct_objects();
+    $self->_register_plugins($session->ID(), $own, $global, $local);
+    $self->{own_plugins} = $own;
+
+    for my $entry (@{ $self->{ircs} }) {
+        my ($network, $irc) = @$entry;
+        $self->_status($network, 'normal', 'Connecting to IRC');
+        $irc->yield('connect');
+    }
+
+    return;
+}
+
+sub _construct_objects {
+    my ($self) = @_;
 
     # create the shared DNS resolver
     $self->{resolver} = POE::Component::Client::DNS->spawn();
 
     # construct global plugins
     $self->_status(undef, 'normal', "Constructing global plugins");
-    $self->{global_plugs} = $self->_create_plugins(delete $self->{cfg}{global_plugins});
 
-    my $status_plugin = App::Pocoirc::Status->new(
-        Pocoirc => $self,
-        Trace   => $self->{trace},
-        Verbose => $self->{verbose},
-    );
+    my $global_plugs = $self->_create_plugins(delete $self->{cfg}{global_plugins});
 
+    my $own_plugs = [
+        [
+            'PocoircStatus',
+            App::Pocoirc::Status->new(
+                Pocoirc => $self,
+                Trace   => $self->{trace},
+                Verbose => $self->{verbose},
+            ),
+        ],
+    ];
+
+    if ($self->{interactive}) {
+        require App::Pocoirc::ReadLine;
+        push @$own_plugs, [
+            'PocoircReadLine',
+            App::Pocoirc::ReadLine->new(
+                Pocoirc  => $self,
+                cfg_file => $self->{cfg_file},
+            ),
+        ];
+    }
+
+    my $local_plugs;
     # construct IRC components
     while (my ($network, $opts) = each %{ $self->{cfg}{networks} }) {
         my $class = delete $opts->{class};
 
         # construct network-specific plugins
         $self->_status($network, 'normal', 'Constructing local plugins');
-        $self->{local_plugs}{$network} = $self->_create_plugins(delete $opts->{local_plugins});
+        $local_plugs->{$network} = $self->_create_plugins(delete $opts->{local_plugins});
 
         $self->_status($network, 'normal', "Spawning IRC component ($class)");
         my $irc = $class->spawn(
@@ -199,43 +241,7 @@ sub _start {
         push @{ $self->{ircs} }, [$network, $irc];
     }
 
-    for my $entry (@{ $self->{ircs} }) {
-        my ($network, $irc) = @$entry;
-        $self->_status($network, 'normal', 'Registering plugins');
-
-        my @plugins = (
-            @{ $self->{global_plugs} },
-            @{ $self->{local_plugs}{$network} }
-        );
-
-        for my $plugin (@plugins) {
-            my ($class, $object) = @$plugin;
-            my $name = $class.$session->ID();
-            $irc->plugin_add($name, $object,
-                network => $network,
-                status  => sub { $self->_status("$network/$name", @_) },
-            );
-        }
-
-        # add our status plugin and bump it to the front of the pipeline
-        $irc->plugin_add('PocoircStatus'.$session->ID(), $status_plugin,
-            network => $network,
-            status  => sub { $self->_status($network, @_) },
-        );
-        my $idx = $irc->pipeline->get_index($status_plugin);
-        $irc->pipeline->bump_up($status_plugin, $idx);
-    }
-
-    for my $entry (@{ $self->{ircs} }) {
-        my ($network, $irc) = @$entry;
-        $self->_status($network, 'normal', 'Connecting to IRC');
-        $irc->yield('connect');
-    }
-
-    delete $self->{global_plugs};
-    delete $self->{local_plugs};
-
-    return;
+    return $own_plugs, $global_plugs, $local_plugs;
 }
 
 sub _load_either_class {
@@ -252,6 +258,35 @@ sub _load_either_class {
     chomp $error if defined $error;
     $errors .= $error;
     die "Failed to load class $primary or $secondary: $errors\n";
+}
+
+sub _register_plugins {
+    my ($self, $session_id, $own, $global, $local) = @_;
+
+    for my $entry (@{ $self->{ircs} }) {
+        my ($network, $irc) = @$entry;
+        $self->_status($network, 'normal', 'Registering plugins');
+
+        # add our own plugins first
+        for my $own_plugin (@$own) {
+            my ($name, $object) = @$own_plugin;
+            $irc->plugin_add("${name}_$session_id", $object,
+                network => $network,
+                status  => sub { $self->_status($self->_irc_to_network($irc), @_) },
+            );
+        }
+
+        # the rest will get a plugin-specific status callback
+        for my $plugin (@$global, @{ $local->{$network} }) {
+            my ($name, $object) = @$plugin;
+            $irc->plugin_add("${name}_$session_id", $object,
+                network => $network,
+                status  => sub { $self->_status($self->_irc_to_network($irc)."/$name", @_) },
+            );
+        }
+    }
+
+    return;
 }
 
 sub _dump {
@@ -297,10 +332,21 @@ sub _event_debug {
 sub irc_433 {
     my $self = $_[OBJECT];
     my $irc = $_[SENDER]->get_heap();
-    my $reason = irc_to_utf8($_[ARG2]->[1]);
+    my $reason = decode_irc($_[ARG2]->[1]);
     return if $irc->logged_in();
     my $nick = $irc->nick_name();
     $self->_status($irc, 'normal', "Login attempt failed: $reason");
+    return;
+}
+
+# fetch the server name if we're not using a config file
+sub irc_isupport {
+    my ($self, $isupport) = @_[OBJECT, ARG0];
+    my $network = $isupport->isupport('NETWORK');
+
+    if (!defined $self->{cfg_file} && defined $network && length $network) {
+        $self->{ircs}[0][0] = $network;
+    }
     return;
 }
 
@@ -330,11 +376,42 @@ sub irc_plugin_error {
     return;
 }
 
+sub irc_shutdown {
+    my ($self) = $_[OBJECT];
+    my $irc = $_[SENDER]->get_heap();
+
+    $self->_event_debug($irc, 'S_shutdown', [@_[ARG0..$#_]]) if $self->{trace};
+    $self->_status($irc, 'normal', 'IRC component shut down');
+    return;
+}
+
+sub verbose {
+    my ($self, $value) = @_;
+    if (defined $value) {
+        $self->{verbose} = $value;
+        for my $plugin (@{ $self->{own_plugins} }) {
+            $plugin->[1]->verbose($value) if $plugin->[1]->can('verbose');
+        }
+    }
+    return $self->{verbose};
+}
+
+sub trace {
+    my ($self, $value) = @_;
+    if (defined $value) {
+        $self->{trace} = $value;
+        for my $plugin (@{ $self->{own_plugins} }) {
+            $plugin->[1]->trace($value) if $plugin->[1]->can('trace');
+        }
+    }
+    return $self->{trace};
+}
+
 sub _status {
     my ($self, $context, $type, $message) = @_;
 
     my $stamp = strftime('%Y-%m-%d %H:%M:%S', localtime);
-    my $irc; eval { $irc = $context->isa('POE::Component::IRC') };
+    my $irc = eval { $context->isa('POE::Component::IRC') };
     $context = $self->_irc_to_network($context) if $irc;
     $context = defined $context ? " [$context]\t" : ' ';
 
@@ -417,28 +494,18 @@ sub sig_die {
     my ($kernel, $self, $ex) = @_[KERNEL, OBJECT, ARG1];
     chomp $ex->{error_str};
 
-    my @errors = (
-        "Event $ex->{event} in session ".$ex->{dest_session}->ID." raised exception:",
-        "    $ex->{error_str}",
-    );
+    my $error = "Event $ex->{event} in session ".$ex->{dest_session}->ID
+        ." raised exception:\n    $ex->{error_str}";
 
-    $self->_status(undef, 'error', $_) for @errors;
-
-    if (!$self->{shutdown}) {
-        $self->_shutdown('Exiting due to an exception');
-    }
-
+    $self->_status(undef, 'error', $error);
+    $self->shutdown('Exiting due to an exception') if !$self->{shutdown};
     $kernel->sig_handled();
     return;
 }
 
 sub sig_int {
     my ($kernel, $self) = @_[KERNEL, OBJECT];
-
-    if (!$self->{shutdown}) {
-        $self->_status(undef, 'normal', 'Exiting due to SIGINT');
-        $self->_shutdown(undef, 'normal', 'Exiting due to SIGINT');
-    }
+    $self->shutdown('Exiting due to SIGINT') if !$self->{shutdown};
     $kernel->sig_handled();
     return;
 }
@@ -446,17 +513,18 @@ sub sig_int {
 sub sig_term {
     my ($kernel, $self) = @_[KERNEL, OBJECT];
 
-    if (!$self->{shutdown}) {
-        $self->_status(undef, 'normal', 'Exiting due to SIGTERM');
-        $self->_shutdown(undef, 'normal', 'Exiting due to SIGTERM');
-    }
-
+    $self->shutdown('Exiting due to SIGTERM') if !$self->{shutdown};
     $kernel->sig_handled();
     return;
 }
 
-sub _shutdown {
+sub shutdown {
     my ($self, $reason) = @_;
+
+    $self->_status(undef, 'normal', $reason);
+    for my $plugin (@{ $self->{own_plugins} }) {
+        $plugin->[1]->shutdown() if $plugin->[1]->can('shutdown');
+    }
 
     my $logged_in;
     for my $irc (@{ $self->{ircs} }) {
@@ -472,7 +540,6 @@ sub _shutdown {
 
     $self->{resolver}->shutdown();
     $self->{shutdown} = 1;
-
     return;
 }
 
@@ -502,8 +569,12 @@ L<POE::Component::IRC|POE::Component::IRC>. The main features are:
 =item * Supports multiple IRC components and lets you specify which plugins
 to load locally (one object per component) or globally (single object)
 
+=item * Has an interactive mode where you can issue issue commands and
+call methods on the IRC component(s).
+
 It can be used to launch IRC bots or proxies, loaded with plugins of your
-choice. It is also very useful for testing and debugging IRC servers.
+choice. It is very useful for testing and debugging
+L<POE::Component::IRC|POE::Component::IRC> plugins as well as IRC servers.
 
 =back
 
@@ -512,7 +583,7 @@ choice. It is also very useful for testing and debugging IRC servers.
  nick:     foobar1234
  username: foobar
  log_file: /my/log.file
- lib:      '/my/modules'
+ lib:      /my/modules
 
  global_plugins:
    - [CTCP]
@@ -556,8 +627,8 @@ hash will override the ones specified at the top level.
 The C<global_plugins> and C<local_plugins> options should consist of an array
 containing the short plugin class name (e.g. 'AutoJoin') and optionally a hash
 of arguments to that plugin. When figuring out the correct package name,
-App::Pocoirc will first try to load POE::Component::IRC::Plugin::I<your_plugin>
-before trying to load I<your_plugin>.
+App::Pocoirc will first try to load POE::Component::IRC::Plugin::I<YourPlugin>
+before trying to load I<YourPlugin>.
 
 The plugins in C<global_plugins> will be instantiated once and then added to
 all IRC components. B<Note:> not all plugins are designed to be used with
@@ -571,60 +642,58 @@ list of local plugins, which can be overridden in a network hash.
 Here is some example output from the program:
 
  $ pocoirc -f example/config.yml
- 2010-09-26 02:49:41 Started (pid 27534)
- 2010-09-26 02:49:41 Constructing global plugins
- 2010-09-26 02:49:41 [freenode]  Constructing local plugins
- 2010-09-26 02:49:41 [freenode]  Spawning IRC component (POE::Component::IRC::State)
- 2010-09-26 02:49:41 [magnet]    Constructing local plugins
- 2010-09-26 02:49:41 [magnet]    Spawning IRC component (POE::Component::IRC::State)
- 2010-09-26 02:49:41 [freenode]  Registering plugins
- 2010-09-26 02:49:41 [magnet]    Registering plugins
- 2010-09-26 02:49:41 [freenode]  Connecting to IRC
- 2010-09-26 02:49:41 [magnet]    Connecting to IRC
- 2010-09-26 02:49:41 [freenode]  Added plugin Whois3
- 2010-09-26 02:49:41 [freenode]  Added plugin ISupport3
- 2010-09-26 02:49:41 [freenode]  Added plugin DCC3
- 2010-09-26 02:49:41 [magnet]    Added plugin Whois6
- 2010-09-26 02:49:41 [magnet]    Added plugin ISupport6
- 2010-09-26 02:49:41 [magnet]    Added plugin DCC6
- 2010-09-26 02:49:41 [freenode]  Added plugin CTCP2
- 2010-09-26 02:49:41 [freenode]  Added plugin AutoJoin2
- 2010-09-26 02:49:41 [freenode]  Added plugin PocoircStatus2
- 2010-09-26 02:49:41 [magnet]    Added plugin CTCP2
- 2010-09-26 02:49:41 [magnet]    Added plugin PocoircStatus2
- 2010-09-26 02:49:41 [magnet]    Connected to server 217.168.153.160
- 2010-09-26 02:49:41 [freenode]  Connected to server 130.237.188.200
- 2010-09-26 02:49:41 [magnet]    Server notice: *** Looking up your hostname...
- 2010-09-26 02:49:41 [magnet]    Server notice: *** Checking Ident
- 2010-09-26 02:49:41 [freenode]  Server notice: *** Looking up your hostname...
- 2010-09-26 02:49:41 [freenode]  Server notice: *** Checking Ident
- 2010-09-26 02:49:41 [freenode]  Server notice: *** Found your hostname
- 2010-09-26 02:49:41 [magnet]    Server notice: *** Found your hostname
- 2010-09-26 02:49:51 [magnet]    Server notice: *** No Ident response
- 2010-09-26 02:49:51 [magnet]    Logged in to server electret.shadowcat.co.uk with nick hlagherf32fr
- 2010-09-26 02:49:55 [freenode]  Server notice: *** No Ident response
- 2010-09-26 02:49:55 [freenode]  Logged in to server lindbohm.freenode.net with nick foobar1234
- 2010-09-26 02:50:00 [freenode]  Joined channel #foodsfdsf
- 2010-09-26 02:50:15 Exiting due to SIGINT
- 2010-09-26 02:50:15 Waiting up to 5 seconds for IRC server(s) to disconnect us
- 2010-09-26 02:50:15 [magnet]    Error from IRC server: Closing Link: 212-30-192-157.static.simnet.is ()
- 2010-09-26 02:50:15 [magnet]    Disconnected from server 217.168.153.160
- 2010-09-26 02:50:15 [magnet]    IRC component shut down
- 2010-09-26 02:50:15 [freenode]  Quit from IRC (Client Quit)
- 2010-09-26 02:50:15 [magnet]    Deleted plugin DCC6
- 2010-09-26 02:50:15 [magnet]    Deleted plugin ISupport6
- 2010-09-26 02:50:15 [magnet]    Deleted plugin CTCP2
- 2010-09-26 02:50:15 [magnet]    Deleted plugin Whois6
- 2010-09-26 02:50:15 [magnet]    Deleted plugin PocoircStatus2
- 2010-09-26 02:50:15 [freenode]  Error from IRC server: Closing Link: 212-30-192-157.static.simnet.is (Client Quit)
- 2010-09-26 02:50:15 [freenode]  Disconnected from server 130.237.188.200
- 2010-09-26 02:50:15 [freenode]  IRC component shut down
- 2010-09-26 02:50:15 [freenode]  Deleted plugin DCC3
- 2010-09-26 02:50:15 [freenode]  Deleted plugin AutoJoin2
- 2010-09-26 02:50:15 [freenode]  Deleted plugin CTCP2
- 2010-09-26 02:50:15 [freenode]  Deleted plugin Whois3
- 2010-09-26 02:50:15 [freenode]  Deleted plugin PocoircStatus2
- 2010-09-26 02:50:15 [freenode]  Deleted plugin ISupport3
+ 2011-04-18 18:10:52 Started (pid 20105)
+ 2011-04-18 18:10:52 Constructing global plugins
+ 2011-04-18 18:10:52 [freenode]  Constructing local plugins
+ 2011-04-18 18:10:52 [freenode]  Spawning IRC component (POE::Component::IRC::State)
+ 2011-04-18 18:10:52 [magnet]    Constructing local plugins
+ 2011-04-18 18:10:52 [magnet]    Spawning IRC component (POE::Component::IRC::State)
+ 2011-04-18 18:10:52 [freenode]  Registering plugins
+ 2011-04-18 18:10:52 [magnet]    Registering plugins
+ 2011-04-18 18:10:52 [freenode]  Connecting to IRC
+ 2011-04-18 18:10:52 [magnet]    Connecting to IRC
+ 2011-04-18 18:10:52 [freenode]  Added plugin Whois3
+ 2011-04-18 18:10:52 [freenode]  Added plugin ISupport3
+ 2011-04-18 18:10:52 [freenode]  Added plugin DCC3
+ 2011-04-18 18:10:52 [magnet]    Added plugin Whois5
+ 2011-04-18 18:10:52 [magnet]    Added plugin ISupport5
+ 2011-04-18 18:10:52 [magnet]    Added plugin DCC5
+ 2011-04-18 18:10:52 [freenode]  Added plugin CTCP1
+ 2011-04-18 18:10:52 [freenode]  Added plugin AutoJoin1
+ 2011-04-18 18:10:52 [freenode]  Added plugin PocoircStatus1
+ 2011-04-18 18:10:52 [magnet]    Added plugin CTCP1
+ 2011-04-18 18:10:52 [magnet]    Added plugin PocoircStatus1
+ 2011-04-18 18:10:52 [magnet]    Connected to server irc.perl.org
+ 2011-04-18 18:10:52 [magnet]    Server notice: *** Looking up your hostname...
+ 2011-04-18 18:10:52 [magnet]    Server notice: *** Checking Ident
+ 2011-04-18 18:10:52 [freenode]  Connected to server irc.freenode.net
+ 2011-04-18 18:10:53 [magnet]    Server notice: *** Found your hostname
+ 2011-04-18 18:10:53 [freenode]  Server notice: *** Looking up your hostname...
+ 2011-04-18 18:10:53 [freenode]  Server notice: *** Checking Ident
+ 2011-04-18 18:10:53 [freenode]  Server notice: *** Couldn't look up your hostname
+ 2011-04-18 18:11:03 [magnet]    Server notice: *** No Ident response
+ 2011-04-18 18:11:03 [magnet]    Logged in to server magnet.shadowcat.co.uk with nick hlagherf32fr
+ 2011-04-18 18:11:07 [freenode]  Server notice: *** No Ident response
+ 2011-04-18 18:11:07 [freenode]  Logged in to server niven.freenode.net with nick foobar1234
+ 2011-04-18 18:11:11 [freenode]  Joined channel #foodsfdsf
+ ^C2011-04-18 18:11:22 Exiting due to SIGINT
+ 2011-04-18 18:11:22 Waiting up to 5 seconds for IRC server(s) to disconnect us
+ 2011-04-18 18:11:22 [magnet]    Error from IRC server: Closing Link: 212-30-192-157.static.simnet.is ()
+ 2011-04-18 18:11:22 [magnet]    Deleted plugin DCC5
+ 2011-04-18 18:11:22 [magnet]    Deleted plugin ISupport5
+ 2011-04-18 18:11:22 [magnet]    Deleted plugin CTCP1
+ 2011-04-18 18:11:22 [magnet]    Deleted plugin Whois5
+ 2011-04-18 18:11:22 [magnet]    Deleted plugin PocoircStatus1
+ 2011-04-18 18:11:22 [magnet]    IRC component shut down
+ 2011-04-18 18:11:22 [freenode]  Quit from IRC (Client Quit)
+ 2011-04-18 18:11:22 [freenode]  Error from IRC server: Closing Link: 212.30.192.157 (Client Quit)
+ 2011-04-18 18:11:22 [freenode]  Deleted plugin AutoJoin1
+ 2011-04-18 18:11:22 [freenode]  Deleted plugin CTCP1
+ 2011-04-18 18:11:22 [freenode]  Deleted plugin DCC3
+ 2011-04-18 18:11:22 [freenode]  Deleted plugin PocoircStatus1
+ 2011-04-18 18:11:22 [freenode]  Deleted plugin Whois3
+ 2011-04-18 18:11:22 [freenode]  Deleted plugin ISupport3
+ 2011-04-18 18:11:22 [freenode]  IRC component shut down
 
 =head1 AUTHOR
 

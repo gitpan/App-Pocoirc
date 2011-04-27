@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.38';
+  $App::Pocoirc::VERSION = '0.39';
 }
 
 use strict;
@@ -297,7 +297,8 @@ sub _dump {
         return '{'. join(', ', map { "$_->[0] => $_->[1]" } @pairs) .'}';
     }
     elsif (ref $arg) {
-        return $arg;
+        require overload;
+        return overload::StrVal($arg);
     }
     elsif (defined $arg) {
         return looks_like_number($arg) ? $arg : "'$arg'";

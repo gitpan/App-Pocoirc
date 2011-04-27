@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::ReadLine::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::ReadLine::VERSION = '0.38';
+  $App::Pocoirc::ReadLine::VERSION = '0.39';
 }
 
 use strict;

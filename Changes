@@ -1,5 +1,9 @@
 Revision history for App-Pocoirc
 
+0.40  Wed Apr 27 05:50:35 GMT 2011
+    - Oops. Didn't avoid custom stringification everywhere. Fixed.
+    - Allow command-line option bundling, e.g. -itv instead of -i -t -v
+
 0.39  Wed Apr 27 03:32:46 GMT 2011
     - Fix missing name for numeric 001 under --trace. Also depend on
       IRC::Utils 0.07 for even more numeric names.

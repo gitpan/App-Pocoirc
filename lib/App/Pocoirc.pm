@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.41';
+  $App::Pocoirc::VERSION = '0.42';
 }
 
 use strict;
@@ -60,8 +60,6 @@ sub run {
         eval {
             Proc::Daemon::Init->();
             if (defined $self->{log_file}) {
-                close STDOUT;
-                close STDERR;
                 open STDOUT, '>>:encoding(utf8)', $self->{log_file}
                     or die "Can't open $self->{log_file}: $!\n";
                 open STDERR, '>>&STDOUT' or die "Can't redirect STDERR: $!\n";
@@ -532,9 +530,6 @@ sub shutdown {
     my ($self, $reason) = @_;
 
     $self->_status(undef, 'normal', $reason);
-    for my $plugin (@{ $self->{own_plugins} }) {
-        $plugin->[1]->shutdown() if $plugin->[1]->can('shutdown');
-    }
 
     my $logged_in;
     for my $irc (@{ $self->{ircs} }) {

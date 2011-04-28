@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::ReadLine::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::ReadLine::VERSION = '0.41';
+  $App::Pocoirc::ReadLine::VERSION = '0.42';
 }
 
 use strict;
@@ -48,6 +48,8 @@ sub PCI_register {
 }
 
 sub PCI_unregister {
+    my ($self, $irc, %args) = @_;
+    $poe_kernel->call($self->{session_id}, 'restore_stdio');
     return 1;
 }
 
@@ -198,21 +200,15 @@ sub S_network {
     return PCI_EAT_NONE;
 }
 
-sub shutdown {
-    my ($self, $irc) = splice @_, 0, 2;
-    $poe_kernel->post($self->{session_id}, 'restore_stdio');
-    return PCI_EAT_NONE;
-}
-
 sub restore_stdio {
     my ($self) = $_[OBJECT];
 
     my $orig_stderr = delete $self->{orig_stderr};
-    open STDERR, '>&', $orig_stderr;
+    open STDERR, '>&', $orig_stderr or warn "Failed to restore STDERR: $!";
     STDERR->autoflush(1);
 
     my $orig_stdout = delete $self->{orig_stdout};
-    open STDOUT, '>&', $orig_stdout;
+    open STDOUT, '>&', $orig_stdout or warn "Failed to restore STDERR: $!";
 
     binmode $_, ':encoding(utf8)', for (*STDERR, *STDOUT);
 

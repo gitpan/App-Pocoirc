@@ -1,5 +1,12 @@
 Revision history for App-Pocoirc
 
+0.41  Thu Apr 28 21:32:16 GMT 2011
+    - Log it if we fail to log in due to a bad nickname
+    - Decode any IRC strings before printing them under --trace
+    - Enabling 'verbose' in --interactive after startup wasn't working
+    - Fix output encoding in a few spots
+    - POE::Wheel::Run with an exec()'d child was failing under --interactive
+
 0.40  Wed Apr 27 05:50:35 GMT 2011
     - Oops. Didn't avoid custom stringification everywhere. Fixed.
     - Allow command-line option bundling, e.g. -itv instead of -i -t -v

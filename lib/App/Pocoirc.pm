@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.40';
+  $App::Pocoirc::VERSION = '0.41';
 }
 
 use strict;
@@ -31,6 +31,9 @@ sub new {
 
 sub run {
     my ($self) = @_;
+
+    # we print IRC output, which will be UTF-8
+    binmode $_, ':utf8' for (*STDOUT, *STDERR);
 
     if ($self->{list_plugins}) {
         require Module::Pluggable;
@@ -88,10 +91,13 @@ sub run {
                 irc_plugin_del
                 irc_plugin_error
                 irc_plugin_status
-                irc_433
                 irc_isupport
                 irc_shutdown
             )],
+            $self => {
+                irc_432 => 'irc_432_or_433',
+                irc_433 => 'irc_432_or_433',
+            },
         ],
     );
 
@@ -301,7 +307,8 @@ sub _dump {
         return overload::StrVal($arg);
     }
     elsif (defined $arg) {
-        return looks_like_number($arg) ? $arg : "'$arg'";
+        return $arg if looks_like_number($arg);
+        return "'".decode_irc($arg)."'";
     }
     else {
         return 'undef';
@@ -320,7 +327,7 @@ sub _event_debug {
 }
 
 # let's log this if it's preventing us from logging in
-sub irc_433 {
+sub irc_432_or_433 {
     my $self = $_[OBJECT];
     my $irc = $_[SENDER]->get_heap();
     my $reason = decode_irc($_[ARG2]->[1]);

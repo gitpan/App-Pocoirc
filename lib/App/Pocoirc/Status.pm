@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::Status::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::Status::VERSION = '0.42';
+  $App::Pocoirc::Status::VERSION = '0.43';
 }
 
 use strict;
@@ -157,7 +157,7 @@ sub S_isupport {
     my $network  = $isupport->isupport('NETWORK');
     $self->_event_debug($irc, 'S_isupport', \@_) if $self->{Trace};
 
-    if (!defined $self->{Dynamic} && defined $network && length $network) {
+    if (!$self->{Dynamic} && defined $network && length $network) {
         $irc->send_event_next('irc_network', $network);
     }
     return PCI_EAT_NONE;

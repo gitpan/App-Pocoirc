@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::ReadLine::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::ReadLine::VERSION = '0.42';
+  $App::Pocoirc::ReadLine::VERSION = '0.43';
 }
 
 use strict;
@@ -44,12 +44,16 @@ sub PCI_register {
 
     $self->{ircs}{$args{network}} = $irc;
     $irc->plugin_register($self, 'SERVER', 'network');
+    $self->{registered}++;
     return 1;
 }
 
 sub PCI_unregister {
     my ($self, $irc, %args) = @_;
-    $poe_kernel->call($self->{session_id}, 'restore_stdio');
+    $self->{registered}--;
+    if ($self->{registered} == 0) {
+        $poe_kernel->call($self->{session_id}, 'restore_stdio');
+    }
     return 1;
 }
 
@@ -168,11 +172,12 @@ sub _print_help {
     print <<'EOF';
 Type "network foo" to switch networks, or "networks" for a list of networks.
 
-Type ".foo 'bar'" to call the method "foo" with the argument 'bar" on the
-IRC component. You must quote your arguments since they will be eval'd.
+Type ".foo 'bar', 'baz'" to call the method "foo" with the arguments 'bar'
+and 'baz' on the IRC component. You must quote your arguments since they
+will be eval'd, and don't forget to use commas between arguments.
 
-Type "/foo 'bar' 'baz'" to call the POE::Component::IRC command foo with the
-arguments 'bar' and 'baz'. This is equivalent to: .yield 'foo' 'bar' 'baz'
+Type "/foo 'bar', 'baz'" to call the POE::Component::IRC command foo with the
+arguments 'bar' and 'baz'. This is equivalent to: .yield 'foo', 'bar', 'baz'
 
 Type "verbose" and "trace" to flip those features on/off.
 EOF

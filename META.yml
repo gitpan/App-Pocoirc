@@ -6,9 +6,9 @@ build_requires:
   Test::More: 0.47
   Test::Script: 1.07
 configure_requires:
-  ExtUtils::MakeMaker: 6.31
+  ExtUtils::MakeMaker: 6.30
 dynamic_config: 0
-generated_by: 'Dist::Zilla version 4.200004, CPAN::Meta::Converter version 2.110440'
+generated_by: 'Dist::Zilla version 4.200006, CPAN::Meta::Converter version 2.110440'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -38,5 +38,5 @@ resources:
   homepage: http://search.cpan.org/dist/App-Pocoirc/
   license: http://dev.perl.org/licenses/
   repository: git://github.com/hinrik/app-pocoirc.git
-version: 0.43
+version: 0.44
 x_authority: cpan:HINRIK

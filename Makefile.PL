@@ -4,7 +4,7 @@ use warnings;
 
 BEGIN { require 5.008; }
 
-use ExtUtils::MakeMaker 6.31;
+use ExtUtils::MakeMaker 6.30;
 
 
 
@@ -16,7 +16,7 @@ my %WriteMakefileArgs = (
     'Test::Script' => '1.07'
   },
   'CONFIGURE_REQUIRES' => {
-    'ExtUtils::MakeMaker' => '6.31'
+    'ExtUtils::MakeMaker' => '6.30'
   },
   'DISTNAME' => 'App-Pocoirc',
   'EXE_FILES' => [
@@ -37,7 +37,7 @@ my %WriteMakefileArgs = (
     'Term::ANSIColor' => '0',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.43',
+  'VERSION' => '0.44',
   'test' => {
     'TESTS' => 't/*.t'
   }

@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.43';
+  $App::Pocoirc::VERSION = '0.44';
 }
 
 use strict;
@@ -314,7 +314,12 @@ sub _dump {
 }
 
 sub _event_debug {
-    my ($self, $irc, $event, $args) = @_;
+    my ($self, $irc, $args, $event) = @_;
+
+    if (!defined $event) {
+        $event = (caller(1))[3];
+        $event =~ s/.*:://;
+    }
 
     my @output;
     for my $i (0..$#{ $args }) {
@@ -354,7 +359,7 @@ sub irc_network {
 sub irc_plugin_add {
     my ($self, $alias) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_event_debug($irc, 'S_plugin_add', [@_[ARG0..$#_]]) if $self->{trace};
+    $self->_event_debug($irc, [@_[ARG0..$#_]], 'S_plugin_add') if $self->{trace};
     $self->_status($irc, 'normal', "Added plugin $alias");
     return;
 }
@@ -362,7 +367,7 @@ sub irc_plugin_add {
 sub irc_plugin_del {
     my ($self, $alias) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_event_debug($irc, 'S_plugin_del', [@_[ARG0..$#_]]) if $self->{trace};
+    $self->_event_debug($irc, [@_[ARG0..$#_]], 'S_plugin_del') if $self->{trace};
     $self->_status($irc, 'normal', "Deleted plugin $alias");
     return;
 }
@@ -370,7 +375,7 @@ sub irc_plugin_del {
 sub irc_plugin_error {
     my ($self, $error) = @_[OBJECT, ARG0];
     my $irc = $_[SENDER]->get_heap();
-    $self->_event_debug($irc, 'S_plugin_error', [@_[ARG0..$#_]]) if $self->{trace};
+    $self->_event_debug($irc, [@_[ARG0..$#_]], 'S_plugin_error') if $self->{trace};
     $self->_status($irc, 'error', $error);
     return;
 }
@@ -391,7 +396,7 @@ sub irc_plugin_status {
 sub irc_shutdown {
     my ($self) = $_[OBJECT];
     my $irc = $_[SENDER]->get_heap();
-    $self->_event_debug($irc, 'S_shutdown', [@_[ARG0..$#_]]) if $self->{trace};
+    $self->_event_debug($irc, [@_[ARG0..$#_]], 'S_shutdown') if $self->{trace};
     $self->_status($irc, 'normal', 'IRC component shut down');
     return;
 }
@@ -546,7 +551,7 @@ sub shutdown {
         $obj->yield('shutdown', $reason, 5);
     }
 
-    $self->{resolver}->shutdown();
+    $self->{resolver}->shutdown() if $self->{resolver};
     $self->{shutdown} = 1;
     return;
 }

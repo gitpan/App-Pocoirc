@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::ReadLine::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::ReadLine::VERSION = '0.43';
+  $App::Pocoirc::ReadLine::VERSION = '0.44';
 }
 
 use strict;
@@ -21,30 +21,34 @@ sub new {
     croak "$package requires an even number of arguments" if @_ & 1;
     my $self = bless { @_ }, $package;
 
-    POE::Session->create(
-        object_states => [
-            $self => [qw(
-                _start
-                got_user_input
-                got_output
-                restore_stdio
-            )],
-        ],
-    );
     return $self;
 }
 
 sub PCI_register {
     my ($self, $irc, %args) = @_;
 
+    $self->{registered}++;
+
+    if ($self->{registered} == 0) {
+        POE::Session->create(
+            object_states => [
+                $self => [qw(
+                    _start
+                    got_user_input
+                    got_output
+                    restore_stdio
+                )],
+            ],
+        );
+        $self->{console}->get("$args{network}> ");
+    }
+
     if (!defined $self->{ui_irc}) {
         $self->{ui_irc} = $irc;
-        $self->{console}->get("$args{network}> ");
     }
 
     $self->{ircs}{$args{network}} = $irc;
     $irc->plugin_register($self, 'SERVER', 'network');
-    $self->{registered}++;
     return 1;
 }
 
@@ -95,7 +99,6 @@ sub _start {
         InputEvent => 'got_output',
     );
 
-    $self->{console}->get();
     return;
 }
 

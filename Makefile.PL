@@ -27,6 +27,7 @@ my %WriteMakefileArgs = (
   'PREREQ_PM' => {
     'Class::Load' => '0.06',
     'Data::Dump' => '0',
+    'IO::WrapOutput' => '0.02',
     'IRC::Utils' => '0.07',
     'JSON::XS' => '0',
     'Module::Pluggable' => '0',
@@ -35,9 +36,11 @@ my %WriteMakefileArgs = (
     'POE::Component::IRC::State' => '6.61',
     'Proc::Daemon' => '0.02',
     'Term::ANSIColor' => '0',
+    'Term::Cap' => '1.10',
+    'Term::ReadKey' => '2.21',
     'YAML::XS' => '0'
   },
-  'VERSION' => '0.44',
+  'VERSION' => '0.45',
   'test' => {
     'TESTS' => 't/*.t'
   }

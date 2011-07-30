@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::ReadLine::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::ReadLine::VERSION = '0.45';
+  $App::Pocoirc::ReadLine::VERSION = '0.46';
 }
 
 use strict;
@@ -30,7 +30,7 @@ sub PCI_register {
 
     $self->{registered}++;
 
-    if ($self->{registered} == 0) {
+    if ($self->{registered} == 1) {
         POE::Session->create(
             object_states => [
                 $self => [qw(
@@ -40,8 +40,8 @@ sub PCI_register {
                     restore_stdio
                 )],
             ],
+            args => [$args{network}],
         );
-        $self->{console}->get("$args{network}> ");
     }
 
     if (!defined $self->{ui_irc}) {
@@ -63,7 +63,7 @@ sub PCI_unregister {
 }
 
 sub _start {
-    my ($kernel, $session, $self) = @_[KERNEL, SESSION, OBJECT];
+    my ($kernel, $session, $self, $network) = @_[KERNEL, SESSION, OBJECT, ARG0];
 
     $self->{session_id} = $session->ID();
     $self->{console} = POE::Wheel::ReadLine->new(
@@ -82,6 +82,7 @@ sub _start {
         InputEvent => 'got_output',
     );
 
+    $self->{console}->get("$network> ");
     return;
 }
 
@@ -140,6 +141,8 @@ sub got_user_input {
             };
             if (my $err = $@) {
                 chomp $err;
+                my $our_file = __FILE__;
+                $err =~ s{ at \Q$our_file\E line [0-9]+\.$}{};
                 warn $err, "\n";
             }
         }

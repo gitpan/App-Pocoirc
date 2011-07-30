@@ -38,8 +38,8 @@ requires:
   perl: 5.008
 resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=App-Pocoirc
-  homepage: http://search.cpan.org/dist/App-Pocoirc/
+  homepage: http://metacpan.org/release/App-Pocoirc
   license: http://dev.perl.org/licenses/
   repository: git://github.com/hinrik/app-pocoirc.git
-version: 0.45
+version: 0.46
 x_authority: cpan:HINRIK

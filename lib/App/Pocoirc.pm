@@ -3,7 +3,7 @@ BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
 BEGIN {
-  $App::Pocoirc::VERSION = '0.45';
+  $App::Pocoirc::VERSION = '0.46';
 }
 
 use strict;
@@ -189,7 +189,7 @@ sub _start {
 
     for my $entry (@{ $self->{ircs} }) {
         my ($network, $irc) = @$entry;
-        $self->_status($network, 'normal', 'Connecting to IRC');
+        $self->_status($network, 'normal', 'Connecting to IRC ('.$irc->server.')');
         $irc->yield('connect');
     }
 
@@ -243,6 +243,8 @@ sub _construct_objects {
             %$opts,
             Resolver => $self->{resolver},
         );
+        my $isa = eval { $irc->isa($class) };
+        die "isa() test failed for component of class $class\n" if !$isa;
         push @{ $self->{ircs} }, [$network, $irc];
     }
 
@@ -500,6 +502,8 @@ sub _create_plugins {
     for my $plug_spec (@$plugins) {
         my ($class, $args, $canonclass) = @$plug_spec;
         my $obj = $canonclass->new(%$args);
+        my $isa = eval { $obj->isa($canonclass) };
+        die "isa() test failed for plugin of class $canonclass\n" if !$isa;
         push @return, [$class, $obj];
     }
 

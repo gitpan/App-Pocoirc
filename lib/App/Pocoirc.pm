@@ -2,15 +2,12 @@ package App::Pocoirc;
 BEGIN {
   $App::Pocoirc::AUTHORITY = 'cpan:HINRIK';
 }
-BEGIN {
-  $App::Pocoirc::VERSION = '0.46';
+{
+  $App::Pocoirc::VERSION = '0.47';
 }
 
 use strict;
 use warnings FATAL => 'all';
-
-# we want instant child process reaping
-sub POE::Kernel::USE_SIGCHLD () { return 1 }
 
 use App::Pocoirc::Status;
 use Class::Load qw(try_load_class);
@@ -254,17 +251,30 @@ sub _construct_objects {
 sub _load_either_class {
     my ($primary, $secondary) = @_;
 
-    my ($success, $error, $errors);
+    my ($success, $error, @err);
     ($success, $error) = try_load_class($primary);
     return $primary if $success;
 
-    $errors .= $error;
+    push @err, $error;
     ($success, $error) = try_load_class($secondary);
     return $secondary if $success;
 
     chomp $error if defined $error;
-    $errors .= $error;
-    die "Failed to load class $primary or $secondary: $errors\n";
+    push @err, $error;
+
+    my $class = "$primary or $secondary";
+    if (@err == 2) {
+        if ($err[0] =~ /^Can't locate / && $err[1] !~ /^Can't locate /) {
+            $class = $secondary;
+            shift @err;
+        }
+        elsif ($err[1] =~ /^Can't locate / && $err[0] !~ /^Can't locate /) {
+            $class = $primary;
+            pop @err;
+        }
+    }
+    my $reason = join "\n", map { "  $_" } @err;
+    die "Failed to load class $class:\n$reason\n";
 }
 
 sub _register_plugins {
@@ -633,7 +643,7 @@ L<POE::Component::IRC::State|POE::Component::IRC::State>.
 
 =head2 Networks
 
-The C<networks> option should be hash of network hashes. The keys are the
+The C<networks> option should be a hash of network hashes. The keys are the
 names of the networks. A network hash can contain C<local_plugins> and
 parameters to POE::Component::IRC. None are required, except C<server> if not
 defined at the top level. The POE::Component::IRC parameters specified in this
@@ -667,8 +677,8 @@ Here is some example output from the program:
  2011-04-18 18:10:52 [magnet]    Spawning IRC component (POE::Component::IRC::State)
  2011-04-18 18:10:52 [freenode]  Registering plugins
  2011-04-18 18:10:52 [magnet]    Registering plugins
- 2011-04-18 18:10:52 [freenode]  Connecting to IRC
- 2011-04-18 18:10:52 [magnet]    Connecting to IRC
+ 2011-04-18 18:10:52 [freenode]  Connecting to IRC (irc.freenode.net)
+ 2011-04-18 18:10:52 [magnet]    Connecting to IRC (irc.perl.org)
  2011-04-18 18:10:52 [freenode]  Added plugin Whois3
  2011-04-18 18:10:52 [freenode]  Added plugin ISupport3
  2011-04-18 18:10:52 [freenode]  Added plugin DCC3

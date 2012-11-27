@@ -4,7 +4,7 @@
       "Hinrik \u00c3\u0096rn Sigur\u00c3\u00b0sson <hinrik.sig@gmail.com>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 4.200006, CPAN::Meta::Converter version 2.110440",
+   "generated_by" : "Dist::Zilla version 4.300028, CPAN::Meta::Converter version 2.120921",
    "license" : [
       "perl_5"
    ],
@@ -33,22 +33,27 @@
             "ExtUtils::MakeMaker" : "6.30"
          }
       },
+      "develop" : {
+         "requires" : {
+            "Test::Pod" : "1.41"
+         }
+      },
       "runtime" : {
          "requires" : {
-            "Class::Load" : "0.06",
-            "Data::Dump" : 0,
+            "Class::Load" : "0.20",
+            "Data::Dump" : "0",
             "IO::WrapOutput" : "0.02",
             "IRC::Utils" : "0.07",
-            "JSON::XS" : 0,
-            "Module::Pluggable" : 0,
+            "JSON::XS" : "0",
+            "Module::Pluggable" : "0",
             "POE" : "1.310",
             "POE::Component::Client::DNS" : "0.99",
             "POE::Component::IRC::State" : "6.61",
             "Proc::Daemon" : "0.02",
-            "Term::ANSIColor" : 0,
+            "Term::ANSIColor" : "0",
             "Term::Cap" : "1.10",
             "Term::ReadKey" : "2.21",
-            "YAML::XS" : 0,
+            "YAML::XS" : "0",
             "perl" : "5.008"
          }
       }
@@ -69,7 +74,7 @@
          "web" : "http://github.com/hinrik/app-pocoirc"
       }
    },
-   "version" : "0.46",
+   "version" : "0.47",
    "x_authority" : "cpan:HINRIK"
 }
 

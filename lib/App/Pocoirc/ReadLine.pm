@@ -2,8 +2,8 @@ package App::Pocoirc::ReadLine;
 BEGIN {
   $App::Pocoirc::ReadLine::AUTHORITY = 'cpan:HINRIK';
 }
-BEGIN {
-  $App::Pocoirc::ReadLine::VERSION = '0.46';
+{
+  $App::Pocoirc::ReadLine::VERSION = '0.47';
 }
 
 use strict;

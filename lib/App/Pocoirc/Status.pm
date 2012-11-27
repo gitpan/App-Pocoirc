@@ -2,8 +2,8 @@ package App::Pocoirc::Status;
 BEGIN {
   $App::Pocoirc::Status::AUTHORITY = 'cpan:HINRIK';
 }
-BEGIN {
-  $App::Pocoirc::Status::VERSION = '0.46';
+{
+  $App::Pocoirc::Status::VERSION = '0.47';
 }
 
 use strict;

@@ -8,7 +8,7 @@ build_requires:
 configure_requires:
   ExtUtils::MakeMaker: 6.30
 dynamic_config: 0
-generated_by: 'Dist::Zilla version 4.200006, CPAN::Meta::Converter version 2.110440'
+generated_by: 'Dist::Zilla version 4.300028, CPAN::Meta::Converter version 2.120921'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -21,7 +21,7 @@ no_index:
     - utils
     - example
 requires:
-  Class::Load: 0.06
+  Class::Load: 0.20
   Data::Dump: 0
   IO::WrapOutput: 0.02
   IRC::Utils: 0.07
@@ -41,5 +41,5 @@ resources:
   homepage: http://metacpan.org/release/App-Pocoirc
   license: http://dev.perl.org/licenses/
   repository: git://github.com/hinrik/app-pocoirc.git
-version: 0.46
+version: 0.47
 x_authority: cpan:HINRIK
